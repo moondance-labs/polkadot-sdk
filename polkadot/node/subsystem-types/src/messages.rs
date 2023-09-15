@@ -809,6 +809,8 @@ pub enum CollationGenerationMessage {
 	///
 	/// If sent before `Initialize`, this will be ignored.
 	SubmitCollation(SubmitCollationParams),
+	/// Reinitialize the collation generation subsystem
+	Reinitialize(CollationGenerationConfig),
 }
 
 /// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
