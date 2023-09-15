@@ -127,7 +127,7 @@ const STATE_SYNC_FINALITY_THRESHOLD: u32 = 8;
 const MAJOR_SYNC_BLOCKS: u8 = 5;
 
 /// Number of peers that need to be connected before warp sync is started.
-const MIN_PEERS_TO_START_WARP_SYNC: usize = 3;
+const MIN_PEERS_TO_START_WARP_SYNC: usize = 1;
 
 /// Maximum allowed size for a block announce.
 const MAX_BLOCK_ANNOUNCE_SIZE: u64 = 1024 * 1024;
