@@ -17,6 +17,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 log = { workspace = true, default-features = true }
+codec = { workspace = true, default-features = true }
 cfg-if = { workspace = true }
 libc = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
@@ -53,5 +54,4 @@ sc-runtime-test = { path = "../runtime-test" }
 sp-io = { default-features = true, path = "../../../primitives/io" }
 tempfile = { workspace = true }
 paste = { workspace = true, default-features = true }
-codec = { workspace = true, default-features = true }
 cargo_metadata = { workspace = true }
