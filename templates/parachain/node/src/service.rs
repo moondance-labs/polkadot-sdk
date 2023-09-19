@@ -78,8 +78,13 @@ pub fn new_partial(config: &Configuration) -> Result<Service, sc_service::Error>
 		.with_onchain_heap_alloc_strategy(heap_pages)
 		.with_offchain_heap_alloc_strategy(heap_pages)
 		.with_max_runtime_instances(config.max_runtime_instances)
-		.with_runtime_cache_size(config.runtime_cache_size)
-		.build();
+		.with_runtime_cache_size(config.runtime_cache_size);
+
+	if let Some(ref wasmtime_precompiled_path) = config.wasmtime_precompiled {
+		wasm_builder = wasm_builder.with_wasmtime_precompiled_path(wasmtime_precompiled_path);
+	}
+
+	let wasm = wasm_builder.build();
 
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts_record_import::<Block, RuntimeApi, _>(
