@@ -41,6 +41,7 @@ sc-keystore = { workspace = true, default-features = true }
 sc-mixnet = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-service = { workspace = true }
+sc-executor = { workspace = true }
 sc-telemetry = { workspace = true, default-features = true }
 sc-tracing = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
@@ -52,6 +53,8 @@ sp-keystore = { workspace = true, default-features = true }
 sp-panic-handler = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
