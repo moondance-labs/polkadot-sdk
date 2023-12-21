@@ -26,7 +26,7 @@ pub use std::{
 // Substrate
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::Header as HeaderT, DispatchResult},
+	sp_runtime::{traits::Header as HeaderT, Digest, DigestItem, DispatchResult},
 	traits::{
 		EnqueueMessage, Get, Hooks, OriginTrait, ProcessMessage, ProcessMessageError, ServiceQueues,
 	},
@@ -35,6 +35,8 @@ pub use frame_support::{
 pub use frame_system::{Config as SystemConfig, Pallet as SystemPallet};
 pub use pallet_balances::AccountData;
 pub use sp_arithmetic::traits::Bounded;
+pub use sp_consensus_slots::Slot;
+pub use sp_consensus_aura::AURA_ENGINE_ID;
 pub use sp_core::{blake2_256, parameter_types, sr25519, storage::Storage, Pair};
 pub use sp_io::TestExternalities;
 pub use sp_std::{cell::RefCell, collections::vec_deque::VecDeque, fmt::Debug};
@@ -165,6 +167,7 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
+		relay_slot: u64,
 	) -> ParachainInherentData;
 }
 
@@ -624,7 +627,8 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt};
+					use $crate::{Chain, HeadData, Network, NetworkComponent, Hooks, Encode, Parachain, TestExt, 
+						Slot, AURA_ENGINE_ID, Digest, DigestItem};
 
 					let para_id = Self::para_id().into();
 
@@ -644,12 +648,27 @@ macro_rules! decl_test_parachains {
 							.expect("network not initialized?")
 							.clone()
 						);
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &Default::default());
+
+						let digests = <Self as Chain>::System::digest();
+
+						let slot = digests
+							.convert_first(|item| item.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID))
+							.unwrap_or_default();
+						
+						let slot = u64::from(slot);
+
+						let new_slot_digest: Digest = Digest {
+							logs: vec![
+								DigestItem::PreRuntime(AURA_ENGINE_ID, (slot + 1u64).encode()),
+							],
+						};
+
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &new_slot_digest);
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumber>>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
-							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
+							<$name as NetworkComponent>::Network::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, ((slot + 1) * 2)),
 						);
 					});
 				}
@@ -1061,6 +1080,7 @@ macro_rules! decl_test_networks {
 					para_id: u32,
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
+					relay_slot: u64
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
@@ -1074,6 +1094,7 @@ macro_rules! decl_test_networks {
 						}
 
 						sproof.included_para_head = parent_head_data.clone().into();
+						sproof.current_slot = relay_slot.into();
 
 						sproof
 							.hrmp_channels
