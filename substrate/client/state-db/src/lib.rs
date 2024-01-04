@@ -47,7 +47,7 @@ mod pruning;
 mod test;
 
 use codec::Codec;
-use log::trace;
+use log::{debug, trace};
 use noncanonical::NonCanonicalOverlay;
 use parking_lot::RwLock;
 use pruning::{HaveBlock, RefWindow};
@@ -350,8 +350,11 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		// `non_canonical.canonicalize`) and the insert of the new pruning journal (emit from
 		// `pruning.note_canonical`) are collected into the same `CommitSet` and are committed to
 		// the database atomically to keep their consistency when restarting the node
+		debug!(target: LOG_TARGET, "canonicalizing block {:?}", hash);
+
 		let mut commit = CommitSet::default();
 		if self.mode == PruningMode::ArchiveAll {
+			debug!(target: LOG_TARGET, "StateDb prunning set to archive");
 			return Ok(commit)
 		}
 		let number = self.non_canonical.canonicalize(hash, &mut commit)?;
@@ -359,7 +362,9 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 			commit.data.deleted.clear();
 		}
 		if let Some(ref mut pruning) = self.pruning {
+			debug!(target: LOG_TARGET, "StateDb prunning set to {:?}", pruning.window_size());
 			pruning.note_canonical(hash, number, &mut commit)?;
+
 		}
 		self.prune(&mut commit)?;
 		Ok(commit)
@@ -411,25 +416,42 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> StateDbSync<BlockHash, Key, D> {
 		if let (&mut Some(ref mut pruning), PruningMode::Constrained(constraints)) =
 			(&mut self.pruning, &self.mode)
 		{
+			debug!(target: LOG_TARGET, "Entering pruning loop");
+
 			loop {
 				if pruning.window_size() <= constraints.max_blocks.unwrap_or(0) as u64 {
+					debug!(target: LOG_TARGET, "breaking the loop");
 					break
 				}
 
 				let pinned = &self.pinned;
+				debug!(target: LOG_TARGET, "next hash {:?}", pruning.next_hash());
+
 				match pruning.next_hash() {
 					// the block record is temporary unavailable, break and try next time
-					Err(Error::StateDb(StateDbError::BlockUnavailable)) => break,
+					Err(Error::StateDb(StateDbError::BlockUnavailable)) => {
+						debug!(target: LOG_TARGET, "block unavailable");
+						break
+					},
 					res =>
 						if res?.map_or(false, |h| pinned.contains_key(&h)) {
+							debug!(target: LOG_TARGET, "pinned containes key {:?}", pinned);
+
 							break
 						},
 				}
 				match pruning.prune_one(commit) {
 					// this branch should not reach as previous `next_hash` don't return error
 					// keeping it for robustness
-					Err(Error::StateDb(StateDbError::BlockUnavailable)) => break,
-					res => res?,
+					Err(Error::StateDb(StateDbError::BlockUnavailable)) => {
+						debug!(target: LOG_TARGET, "we should never reach this branch");
+						break
+					},
+					res => {
+						debug!(target: LOG_TARGET, "result is correct");
+
+						res?
+					},
 				}
 			}
 		}
