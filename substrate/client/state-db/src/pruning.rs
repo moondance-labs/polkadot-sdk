@@ -29,7 +29,7 @@ use crate::{
 	DEFAULT_MAX_BLOCK_CONSTRAINT, LOG_TARGET,
 };
 use codec::{Decode, Encode};
-use log::trace;
+use log::{debug, trace};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 pub(crate) const LAST_PRUNED: &[u8] = b"last_pruned";
@@ -165,6 +165,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> DeathRowQueue<BlockHash, Key, D> {
 	) -> Result<Option<DeathRow<BlockHash, Key>>, Error<D::Error>> {
 		match self {
 			DeathRowQueue::DbBacked { db, cache, cache_capacity, .. } => {
+				debug!(target: LOG_TARGET, "popfront db backed");
+
 				if cache.is_empty() {
 					DeathRowQueue::load_batch_from_db(db, cache, base, *cache_capacity)?;
 				}
@@ -172,12 +174,18 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> DeathRowQueue<BlockHash, Key, D> {
 			},
 			DeathRowQueue::Mem { death_rows, death_index } => match death_rows.pop_front() {
 				Some(row) => {
+					debug!(target: LOG_TARGET, "popfront mem some");
+
 					for k in row.deleted.iter() {
 						death_index.remove(k);
 					}
 					Ok(Some(row))
 				},
-				None => Ok(None),
+				None => {
+					debug!(target: LOG_TARGET, "popfront mem none");
+
+					Ok(None)
+				},
 			},
 		}
 	}
@@ -222,8 +230,16 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> DeathRowQueue<BlockHash, Key, D> {
 	/// Return the number of block in the pruning window
 	fn len(&self, base: u64) -> u64 {
 		match self {
-			DeathRowQueue::DbBacked { last, .. } => last.map_or(0, |l| l + 1 - base),
-			DeathRowQueue::Mem { death_rows, .. } => death_rows.len() as u64,
+			DeathRowQueue::DbBacked { last, .. } => {
+				debug!(target: LOG_TARGET, "db backed last  {:?}", last);
+
+				last.map_or(0, |l| l + 1 - base)
+			},
+			DeathRowQueue::Mem { death_rows, .. } => {
+				debug!(target: LOG_TARGET, "death row queue {:?}", death_rows.len());
+
+				death_rows.len() as u64
+			},
 		}
 	}
 
@@ -384,6 +400,8 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 
 	/// Prune next block. Expects at least one block in the window. Adds changes to `commit`.
 	pub fn prune_one(&mut self, commit: &mut CommitSet<Key>) -> Result<(), Error<D::Error>> {
+		debug!(target: LOG_TARGET, "base {:?}", self.base);
+
 		if let Some(pruned) = self.queue.pop_front(self.base)? {
 			trace!(target: "state-db", "Pruning {:?} ({} deleted)", pruned.hash, pruned.deleted.len());
 			let index = self.base;
@@ -391,7 +409,7 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 			commit.meta.inserted.push((to_meta_key(LAST_PRUNED, &()), index.encode()));
 			commit.meta.deleted.push(to_journal_key(self.base));
 			self.base += 1;
-			Ok(())
+			Ok(())	
 		} else {
 			trace!(target: "state-db", "Trying to prune when there's nothing to prune");
 			Err(Error::StateDb(StateDbError::BlockUnavailable))
@@ -409,9 +427,11 @@ impl<BlockHash: Hash, Key: Hash, D: MetaDb> RefWindow<BlockHash, Key, D> {
 			// assume that parent was canonicalized
 			self.base = number;
 		} else if (self.base + self.window_size()) != number {
+			debug!(target: "state-db", "erroring with invalid block number");
+
 			return Err(Error::StateDb(StateDbError::InvalidBlockNumber))
 		}
-		trace!(target: "state-db", "Adding to pruning window: {:?} ({} inserted, {} deleted)", hash, commit.data.inserted.len(), commit.data.deleted.len());
+		debug!(target: "state-db", "Adding to pruning window: {:?} ({} inserted, {} deleted)", hash, commit.data.inserted.len(), commit.data.deleted.len());
 		let inserted = if matches!(self.queue, DeathRowQueue::Mem { .. }) {
 			commit.data.inserted.iter().map(|(k, _)| k.clone()).collect()
 		} else {
