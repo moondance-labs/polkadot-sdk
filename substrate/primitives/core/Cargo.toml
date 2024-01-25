@@ -82,7 +82,7 @@ bench = false
 default = ["std"]
 
 std = [
-	"bandersnatch_vrfs?/std",
+	# "bandersnatch_vrfs/std",
 	"bip39/rand",
 	"bip39/std",
 	"blake2/std",
