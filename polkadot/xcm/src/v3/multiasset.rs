@@ -44,9 +44,20 @@ use scale_info::TypeInfo;
 
 /// A general identifier for an instance of a non-fungible asset class.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetInstance {
@@ -242,8 +253,19 @@ impl TryFrom<AssetInstance> for u128 {
 
 /// Classification of whether an asset is fungible or not, along with a mandatory amount or
 /// instance.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum Fungibility {
@@ -312,9 +334,20 @@ impl TryFrom<OldFungibility> for Fungibility {
 
 /// Classification of whether an asset is fungible or not.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildFungibility {
@@ -337,9 +370,20 @@ impl TryFrom<OldWildFungibility> for WildFungibility {
 
 /// Classification of an asset being concrete or abstract.
 #[derive(
-	Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen,
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
 )]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum AssetId {
@@ -414,8 +458,18 @@ impl AssetId {
 }
 
 /// Either an amount of a single fungible asset, or a single well-identified non-fungible asset.
-#[derive(Clone, Eq, PartialEq, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAsset {
@@ -513,8 +567,19 @@ impl TryFrom<OldMultiAsset> for MultiAsset {
 /// - It may contain no items of duplicate asset class;
 /// - All items must be ordered;
 /// - The number of items should grow no larger than `MAX_ITEMS_IN_MULTIASSETS`.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, TypeInfo, Default)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	TypeInfo,
+	Default,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub struct MultiAssets(Vec<MultiAsset>);
@@ -714,8 +779,20 @@ impl MultiAssets {
 }
 
 /// A wildcard representing a set of assets.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum WildMultiAsset {
@@ -828,8 +905,20 @@ impl<A: Into<AssetId>, B: Into<WildFungibility>> From<(A, B)> for WildMultiAsset
 }
 
 /// `MultiAsset` collection, defined either by a number of `MultiAssets` or a single wildcard.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	Encode,
+	Decode,
+	TypeInfo,
+	MaxEncodedLen,
+	serde::Serialize,
+	serde::Deserialize,
+)]
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum MultiAssetFilter {
