@@ -680,7 +680,7 @@ macro_rules! decl_test_parachains {
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, ((slot + 1) * 2)),
+							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, ((slot + 1))),
 						);
 					});
 				}
