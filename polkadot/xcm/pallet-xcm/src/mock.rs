@@ -367,11 +367,22 @@ parameter_types! {
 		parents: 0,
 		interior: X1(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID))
 	};
+	pub PaidParaForeignReserveLocation: MultiLocation = MultiLocation {
+		parents: 0,
+		interior: X1(Parachain(Para3000::get()))
+	};
 	pub const ForeignAsset: MultiAsset = MultiAsset {
 		fun: Fungible(10),
 		id: Concrete(MultiLocation {
 			parents: 0,
 			interior: X2(Parachain(FOREIGN_ASSET_RESERVE_PARA_ID), FOREIGN_ASSET_INNER_JUNCTION),
+		}),
+	};
+	pub PaidParaForeignAsset: MultiAsset = MultiAsset {
+		fun: Fungible(10),
+		id: Concrete(MultiLocation {
+			parents: 0,
+			interior: X1(Parachain(Para3000::get())),
 		}),
 	};
 	pub const UsdcReserveLocation: MultiLocation = MultiLocation {
@@ -458,6 +469,8 @@ parameter_types! {
 	pub TeleportUsdtToForeign: (MultiAssetFilter, MultiLocation) = (Usdt::get().into(), ForeignReserveLocation::get());
 	pub TrustedForeign: (MultiAssetFilter, MultiLocation) = (ForeignAsset::get().into(), ForeignReserveLocation::get());
 	pub TrustedUsdc: (MultiAssetFilter, MultiLocation) = (Usdc::get().into(), UsdcReserveLocation::get());
+	pub TrustedPaidParaForeign: (MultiAssetFilter, MultiLocation) = (PaidParaForeignAsset::get().into(), PaidParaForeignReserveLocation::get());
+
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub XcmFeesTargetAccount: AccountId = AccountId::new([167u8; 32]);
@@ -485,7 +498,7 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmSender = XcmRouter;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
-	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>);
+	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
 	type IsTeleporter = (
 		Case<TrustedLocal>,
 		Case<TrustedSystemPara>,
