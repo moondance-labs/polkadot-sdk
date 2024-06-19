@@ -862,7 +862,7 @@ pub enum CollationGenerationMessage {
 	/// [`CommittedCandidateReceipt`] and distribute along the network to validators.
 	///
 	/// If sent before `Initialize`, this will be ignored.
-	SubmitCollation(SubmitCollationParams)
+	SubmitCollation(SubmitCollationParams),
 }
 
 /// The result type of [`ApprovalVotingMessage::CheckAndImportAssignment`] request.
