@@ -8198,7 +8198,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.3.0"
-source = "git+https://github.com/paritytech/litep2p?branch=master#b142c9eb611fb2fe78d2830266a3675b37299ceb"
+source = "git+https://github.com/paritytech/litep2p?rev=b142c9eb611fb2fe78d2830266a3675b37299ceb#b142c9eb611fb2fe78d2830266a3675b37299ceb"
 dependencies = [
  "async-trait",
  "bs58 0.4.0",
@@ -16462,6 +16462,7 @@ dependencies = [
  "sc-service",
  "sc-telemetry",
  "sc-tracing",
+ "sc-transaction-pool",
  "sc-utils",
  "serde",
  "serde_json",
@@ -17743,6 +17744,7 @@ dependencies = [
  "criterion 0.4.0",
  "futures",
  "futures-timer",
+ "itertools 0.10.5",
  "linked-hash-map",
  "log",
  "parity-scale-codec",
@@ -17765,6 +17767,8 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-test-runtime-transaction-pool",
  "thiserror",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -20638,6 +20642,7 @@ dependencies = [
  "jsonrpsee",
  "log",
  "parity-scale-codec",
+ "sc-block-builder",
  "sc-rpc-api",
  "sc-transaction-pool",
  "sc-transaction-pool-api",
@@ -20835,6 +20840,7 @@ name = "substrate-test-runtime-transaction-pool"
 version = "2.0.0"
 dependencies = [
  "futures",
+ "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-transaction-pool",
