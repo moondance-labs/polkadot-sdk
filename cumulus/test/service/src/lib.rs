@@ -129,7 +129,7 @@ pub type Backend = TFullBackend<Block>;
 pub type ParachainBlockImport = TParachainBlockImport<Block, Arc<Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::FullPool<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolImpl<Block, Client>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -152,7 +152,7 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		message: AvailabilityRecoveryMessage,
 		origin: &'static str,
 	) {
-		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _) = message;
+		let AvailabilityRecoveryMessage::RecoverAvailableData(ref receipt, _, _, _, _) = message;
 		let candidate_hash = receipt.hash();
 
 		// For every 3rd block we immediately signal unavailability to trigger
@@ -160,7 +160,8 @@ impl RecoveryHandle for FailingRecoveryHandle {
 		if self.counter % 3 == 0 && self.failed_hashes.insert(candidate_hash) {
 			tracing::info!(target: LOG_TARGET, ?candidate_hash, "Failing pov recovery.");
 
-			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, back_sender) = message;
+			let AvailabilityRecoveryMessage::RecoverAvailableData(_, _, _, _, back_sender) =
+				message;
 			back_sender
 				.send(Err(RecoveryError::Unavailable))
 				.expect("Return channel should work here.");
@@ -177,7 +178,7 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::FullPool<Block, Client>,
+	sc_transaction_pool::TransactionPoolImpl<Block, Client>,
 	ParachainBlockImport,
 >;
 
@@ -212,13 +213,14 @@ pub fn new_partial(
 
 	let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new()
+		.with_options(config.transaction_pool.clone())
+		.build(
+			config.role.is_authority().into(),
+			config.prometheus_registry(),
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+		);
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
@@ -824,6 +826,8 @@ pub fn node_config(
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,

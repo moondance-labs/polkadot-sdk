@@ -68,6 +68,7 @@ use runtime_common::{
 use runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime,
 	assigner_on_demand as parachains_assigner_on_demand, configuration as parachains_configuration,
+	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
 	dmp as parachains_dmp, hrmp as parachains_hrmp, inclusion as parachains_inclusion,
@@ -101,13 +102,13 @@ use sp_std::{
 #[cfg(any(feature = "std", test))]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use xcm::{
-	latest::prelude::*, IntoVersion, VersionedAssetId, VersionedAssets, VersionedLocation,
-	VersionedXcm,
-};
+use xcm::{latest::prelude::*, VersionedAssetId, VersionedAssets, VersionedLocation, VersionedXcm};
 use xcm_builder::PayOverXcm;
 
-use xcm_fee_payment_runtime_api::Error as XcmPaymentApiError;
+use xcm_fee_payment_runtime_api::{
+	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
+	fees::Error as XcmPaymentApiError,
+};
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -613,7 +614,6 @@ parameter_types! {
 	// this is an unbounded number. We just set it to a reasonably high value, 1 full page
 	// of nominators.
 	pub const MaxNominators: u32 = 64;
-	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 }
@@ -634,7 +634,6 @@ impl pallet_staking::Config for Runtime {
 	type SessionInterface = Self;
 	type EraPayout = pallet_staking::ConvertCurve<RewardCurve>;
 	type MaxExposurePageSize = MaxExposurePageSize;
-	type OffendingValidatorsThreshold = OffendingValidatorsThreshold;
 	type NextNewSession = Session;
 	type ElectionProvider = ElectionProviderMultiPhase;
 	type GenesisElectionProvider = onchain::OnChainExecution<OnChainSeqPhragmen>;
@@ -645,8 +644,9 @@ impl pallet_staking::Config for Runtime {
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
-	type EventListeners = NominationPools;
+	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = weights::pallet_staking::WeightInfo<Runtime>;
+	type DisablingStrategy = pallet_staking::UpToLimitDisablingStrategy;
 }
 
 impl pallet_fast_unstake::Config for Runtime {
@@ -794,6 +794,7 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(true),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -1164,7 +1165,7 @@ impl pallet_message_queue::Config for Runtime {
 impl parachains_dmp::Config for Runtime {}
 
 parameter_types! {
-	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4096, 4);
+	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -1172,7 +1173,11 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
+		Runtime,
+		HrmpChannelSizeAndCapacityWithSystemRatio,
+	>;
+	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::runtime_parachains_hrmp::WeightInfo<Self>;
 }
 
@@ -1352,7 +1357,8 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type Staking = Staking;
+	type StakeAdapter =
+		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type PostUnbondingPoolsWindow = ConstU32<4>;
 	type MaxMetadataLen = ConstU32<256>;
 	// we use the same number of allowed unlocking chunks as with staking.
@@ -1360,6 +1366,21 @@ impl pallet_nomination_pools::Config for Runtime {
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+}
+
+parameter_types! {
+	pub const DelegatedStakingPalletId: PalletId = PalletId(*b"py/dlstk");
+	pub const SlashRewardFraction: Perbill = Perbill::from_percent(1);
+}
+
+impl pallet_delegated_staking::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletId = DelegatedStakingPalletId;
+	type Currency = Balances;
+	type OnSlash = ();
+	type SlashRewardFraction = SlashRewardFraction;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type CoreStaking = Staking;
 }
 
 impl pallet_root_testing::Config for Runtime {
@@ -1510,6 +1531,10 @@ mod runtime {
 	#[runtime::pallet_index(37)]
 	pub type Treasury = pallet_treasury;
 
+	// Staking extension for delegation
+	#[runtime::pallet_index(38)]
+	pub type DelegatedStaking = pallet_delegated_staking;
+
 	// Parachains pallets. Start indices at 40 to leave room.
 	#[runtime::pallet_index(41)]
 	pub type ParachainsOrigin = parachains_origin;
@@ -1610,13 +1635,15 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
-pub struct NominationPoolsMigrationV4OldPallet;
-impl Get<Perbill> for NominationPoolsMigrationV4OldPallet {
-	fn get() -> Perbill {
-		Perbill::from_percent(100)
-	}
+parameter_types! {
+	// This is the max pools that will be migrated in the runtime upgrade. Westend has more pools
+	// than this, but we want to emulate some non migrated pools. In prod runtimes, if weight is not
+	// a concern, it is recommended to set to (existing pools + 10) to also account for any new
+	// pools getting created before the migration is actually executed.
+	pub const MaxPoolsToMigrate: u32 = 250;
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -1649,7 +1676,15 @@ pub mod migrations {
 	}
 
 	/// Unreleased migrations. Add new ones here:
-	pub type Unreleased = ();
+	pub type Unreleased = (
+		// Migrate NominationPools to `DelegateStake` adapter. This is unversioned upgrade and
+		// should not be applied yet in Kusama/Polkadot.
+		pallet_nomination_pools::migration::unversioned::DelegationStakeMigration<
+			Runtime,
+			MaxPoolsToMigrate,
+		>,
+		pallet_staking::migrations::v15::MigrateV14ToV15<Runtime>,
+	);
 }
 
 /// Unchecked extrinsic type as expected by this runtime.
@@ -1967,7 +2002,7 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: beefy_primitives::EquivocationProof<
+			equivocation_proof: beefy_primitives::DoubleVotingProof<
 				BlockNumber,
 				BeefyId,
 				BeefySignature,
@@ -2006,7 +2041,7 @@ sp_api::impl_runtime_apis! {
 		fn generate_proof(
 			block_numbers: Vec<BlockNumber>,
 			best_known_block_number: Option<BlockNumber>,
-		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::Proof<mmr::Hash>), mmr::Error> {
+		) -> Result<(Vec<mmr::EncodableOpaqueLeaf>, mmr::LeafProof<mmr::Hash>), mmr::Error> {
 			Mmr::generate_proof(block_numbers, best_known_block_number).map(
 				|(leaves, proof)| {
 					(
@@ -2020,7 +2055,7 @@ sp_api::impl_runtime_apis! {
 			)
 		}
 
-		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::Proof<mmr::Hash>)
+		fn verify_proof(leaves: Vec<mmr::EncodableOpaqueLeaf>, proof: mmr::LeafProof<mmr::Hash>)
 			-> Result<(), mmr::Error>
 		{
 			let leaves = leaves.into_iter().map(|leaf|
@@ -2033,7 +2068,7 @@ sp_api::impl_runtime_apis! {
 		fn verify_proof_stateless(
 			root: mmr::Hash,
 			leaves: Vec<mmr::EncodableOpaqueLeaf>,
-			proof: mmr::Proof<mmr::Hash>
+			proof: mmr::LeafProof<mmr::Hash>
 		) -> Result<(), mmr::Error> {
 			let nodes = leaves.into_iter().map(|leaf|mmr::DataOrHash::Data(leaf.into_opaque_leaf())).collect();
 			pallet_mmr::verify_leaves_proof::<mmr::Hashing, _>(root, nodes, proof)
@@ -2194,26 +2229,27 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	impl xcm_fee_payment_runtime_api::XcmPaymentApi<Block> for Runtime {
+	impl xcm_fee_payment_runtime_api::fees::XcmPaymentApi<Block> for Runtime {
 		fn query_acceptable_payment_assets(xcm_version: xcm::Version) -> Result<Vec<VersionedAssetId>, XcmPaymentApiError> {
-			if !matches!(xcm_version, 3 | 4) {
-				return Err(XcmPaymentApiError::UnhandledXcmVersion);
-			}
-			Ok([VersionedAssetId::V4(xcm_config::TokenLocation::get().into())]
-				.into_iter()
-				.filter_map(|asset| asset.into_version(xcm_version).ok())
-				.collect())
+			let acceptable_assets = vec![AssetId(xcm_config::TokenLocation::get())];
+			XcmPallet::query_acceptable_payment_assets(xcm_version, acceptable_assets)
 		}
 
 		fn query_weight_to_asset_fee(weight: Weight, asset: VersionedAssetId) -> Result<u128, XcmPaymentApiError> {
-			let local_asset = VersionedAssetId::V4(xcm_config::TokenLocation::get().into());
-			let asset = asset
-				.into_version(4)
-				.map_err(|_| XcmPaymentApiError::VersionedConversionFailed)?;
-
-			if  asset != local_asset { return Err(XcmPaymentApiError::AssetNotFound); }
-
-			Ok(WeightToFee::weight_to_fee(&weight))
+			match asset.try_as::<AssetId>() {
+				Ok(asset_id) if asset_id.0 == xcm_config::TokenLocation::get() => {
+					// for native token
+					Ok(WeightToFee::weight_to_fee(&weight))
+				},
+				Ok(asset_id) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - unhandled asset_id: {asset_id:?}!");
+					Err(XcmPaymentApiError::AssetNotFound)
+				},
+				Err(_) => {
+					log::trace!(target: "xcm::xcm_fee_payment_runtime_api", "query_weight_to_asset_fee - failed to convert asset: {asset:?}!");
+					Err(XcmPaymentApiError::VersionedConversionFailed)
+				}
+			}
 		}
 
 		fn query_xcm_weight(message: VersionedXcm<()>) -> Result<Weight, XcmPaymentApiError> {
@@ -2222,6 +2258,16 @@ sp_api::impl_runtime_apis! {
 
 		fn query_delivery_fees(destination: VersionedLocation, message: VersionedXcm<()>) -> Result<VersionedAssets, XcmPaymentApiError> {
 			XcmPallet::query_delivery_fees(destination, message)
+		}
+	}
+
+	impl xcm_fee_payment_runtime_api::dry_run::DryRunApi<Block, RuntimeCall, RuntimeEvent, OriginCaller> for Runtime {
+		fn dry_run_call(origin: OriginCaller, call: RuntimeCall) -> Result<CallDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			XcmPallet::dry_run_call::<Runtime, xcm_config::XcmRouter, OriginCaller, RuntimeCall>(origin, call)
+		}
+
+		fn dry_run_xcm(origin_location: VersionedLocation, xcm: VersionedXcm<RuntimeCall>) -> Result<XcmDryRunEffects<RuntimeEvent>, XcmDryRunApiError> {
+			XcmPallet::dry_run_xcm::<Runtime, xcm_config::XcmRouter, RuntimeCall, xcm_config::XcmConfig>(origin_location, xcm)
 		}
 	}
 
@@ -2241,6 +2287,22 @@ sp_api::impl_runtime_apis! {
 		fn balance_to_points(pool_id: pallet_nomination_pools::PoolId, new_funds: Balance) -> Balance {
 			NominationPools::api_balance_to_points(pool_id, new_funds)
 		}
+
+		fn pool_pending_slash(pool_id: pallet_nomination_pools::PoolId) -> Balance {
+			NominationPools::api_pool_pending_slash(pool_id)
+		}
+
+		fn member_pending_slash(member: AccountId) -> Balance {
+			NominationPools::api_member_pending_slash(member)
+		}
+
+		fn pool_needs_delegate_migration(pool_id: pallet_nomination_pools::PoolId) -> bool {
+			NominationPools::api_pool_needs_delegate_migration(pool_id)
+		}
+
+		fn member_needs_delegate_migration(member: AccountId) -> bool {
+			NominationPools::api_member_needs_delegate_migration(member)
+		}
 	}
 
 	impl pallet_staking_runtime_api::StakingApi<Block, Balance, AccountId> for Runtime {
@@ -2250,6 +2312,10 @@ sp_api::impl_runtime_apis! {
 
 		fn eras_stakers_page_count(era: sp_staking::EraIndex, account: AccountId) -> sp_staking::Page {
 			Staking::api_eras_stakers_page_count(era, account)
+		}
+
+		fn pending_rewards(era: sp_staking::EraIndex, account: AccountId) -> bool {
+			Staking::api_pending_rewards(era, account)
 		}
 	}
 

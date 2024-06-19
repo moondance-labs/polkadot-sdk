@@ -31,7 +31,7 @@ use sc_service::{
 	client::Client,
 	config::{BasePath, DatabaseSource, KeystoreConfig, RpcBatchRequestConfig},
 	BlocksPruning, ChainSpecExtension, Configuration, Error, GenericChainSpec, Role,
-	RuntimeGenesis, SpawnTaskHandle, TaskManager,
+	SpawnTaskHandle, TaskManager,
 };
 use sc_transaction_pool_api::TransactionPool;
 use sp_blockchain::HeaderBackend;
@@ -46,16 +46,16 @@ mod client;
 /// Maximum duration of single wait call.
 const MAX_WAIT_TIME: Duration = Duration::from_secs(60 * 3);
 
-struct TestNet<G, E, F, U> {
+struct TestNet<E, F, U> {
 	runtime: Runtime,
 	authority_nodes: Vec<(usize, F, U, MultiaddrWithPeerId)>,
 	full_nodes: Vec<(usize, F, U, MultiaddrWithPeerId)>,
-	chain_spec: GenericChainSpec<G, E>,
+	chain_spec: GenericChainSpec<E>,
 	base_port: u16,
 	nodes: usize,
 }
 
-impl<G, E, F, U> Drop for TestNet<G, E, F, U> {
+impl<E, F, U> Drop for TestNet<E, F, U> {
 	fn drop(&mut self) {
 		// Drop the nodes before dropping the runtime, as the runtime otherwise waits for all
 		// futures to be ended and we run into a dead lock.
@@ -69,7 +69,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	type Backend: Backend<Self::Block>;
 	type Executor: CallExecutor<Self::Block> + Send + Sync;
 	type RuntimeApi: Send + Sync;
-	type TransactionPool: TransactionPool<Block = Self::Block>;
+	type TransactionPool: TransactionPool<Block = Self::Block> + ?Sized;
 
 	fn client(&self) -> Arc<Client<Self::Backend, Self::Executor, Self::Block, Self::RuntimeApi>>;
 	fn transaction_pool(&self) -> Arc<Self::TransactionPool>;
@@ -78,7 +78,7 @@ pub trait TestNetNode: Clone + Future<Output = Result<(), Error>> + Send + 'stat
 	fn spawn_handle(&self) -> SpawnTaskHandle;
 }
 
-pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
+pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> {
 	task_manager: Arc<Mutex<TaskManager>>,
 	client: Arc<Client<TBackend, TExec, TBl, TRtApi>>,
 	transaction_pool: Arc<TExPool>,
@@ -86,7 +86,7 @@ pub struct TestNetComponents<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> {
 	sync: Arc<SyncingService<TBl>>,
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized>
 	TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	pub fn new(
@@ -106,7 +106,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool>
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Clone
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	fn clone(&self) -> Self {
@@ -120,7 +120,7 @@ impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Clone
 	}
 }
 
-impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool> Future
+impl<TBl: BlockT, TBackend, TExec, TRtApi, TExPool: ?Sized> Future
 	for TestNetComponents<TBl, TBackend, TExec, TRtApi, TExPool>
 {
 	type Output = Result<(), Error>;
@@ -137,7 +137,7 @@ where
 	TBackend: sc_client_api::Backend<TBl> + Send + Sync + 'static,
 	TExec: CallExecutor<TBl> + Send + Sync + 'static,
 	TRtApi: Send + Sync + 'static,
-	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static,
+	TExPool: TransactionPool<Block = TBl> + Send + Sync + 'static + ?Sized,
 {
 	type Block = TBl;
 	type Backend = TBackend;
@@ -162,7 +162,7 @@ where
 	}
 }
 
-impl<G, E, F, U> TestNet<G, E, F, U>
+impl<E, F, U> TestNet<E, F, U>
 where
 	F: Clone + Send + 'static,
 	U: Clone + Send + 'static,
@@ -193,12 +193,9 @@ where
 	}
 }
 
-fn node_config<
-	G: RuntimeGenesis + 'static,
-	E: ChainSpecExtension + Clone + 'static + Send + Sync,
->(
+fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 	index: usize,
-	spec: &GenericChainSpec<G, E>,
+	spec: &GenericChainSpec<E>,
 	role: Role,
 	tokio_handle: tokio::runtime::Handle,
 	key_seed: Option<String>,
@@ -253,6 +250,8 @@ fn node_config<
 		rpc_message_buffer_capacity: Default::default(),
 		rpc_batch_config: RpcBatchRequestConfig::Unlimited,
 		rpc_rate_limit: None,
+		rpc_rate_limit_whitelisted_ips: Default::default(),
+		rpc_rate_limit_trust_proxy_headers: Default::default(),
 		prometheus_config: None,
 		telemetry_endpoints: None,
 		default_heap_pages: None,
@@ -271,19 +270,18 @@ fn node_config<
 	}
 }
 
-impl<G, E, F, U> TestNet<G, E, F, U>
+impl<E, F, U> TestNet<E, F, U>
 where
 	F: TestNetNode,
 	E: ChainSpecExtension + Clone + 'static + Send + Sync,
-	G: RuntimeGenesis + 'static,
 {
 	fn new(
 		temp: &TempDir,
-		spec: GenericChainSpec<G, E>,
+		spec: GenericChainSpec<E>,
 		full: impl Iterator<Item = impl FnOnce(Configuration) -> Result<(F, U), Error>>,
 		authorities: impl Iterator<Item = (String, impl FnOnce(Configuration) -> Result<(F, U), Error>)>,
 		base_port: u16,
-	) -> TestNet<G, E, F, U> {
+	) -> TestNet<E, F, U> {
 		sp_tracing::try_init_simple();
 		fdlimit::raise_fd_limit().unwrap();
 		let runtime = Runtime::new().expect("Error creating tokio runtime");
@@ -364,10 +362,9 @@ fn tempdir_with_prefix(prefix: &str) -> TempDir {
 		.expect("Error creating test dir")
 }
 
-pub fn connectivity<G, E, Fb, F>(spec: GenericChainSpec<G, E>, full_builder: Fb)
+pub fn connectivity<E, Fb, F>(spec: GenericChainSpec<E>, full_builder: Fb)
 where
 	E: ChainSpecExtension + Clone + 'static + Send + Sync,
-	G: RuntimeGenesis + 'static,
 	Fb: Fn(Configuration) -> Result<F, Error>,
 	F: TestNetNode,
 {
@@ -441,8 +438,8 @@ where
 	}
 }
 
-pub fn sync<G, E, Fb, F, B, ExF, U>(
-	spec: GenericChainSpec<G, E>,
+pub fn sync<E, Fb, F, B, ExF, U>(
+	spec: GenericChainSpec<E>,
 	full_builder: Fb,
 	mut make_block_and_import: B,
 	mut extrinsic_factory: ExF,
@@ -453,7 +450,6 @@ pub fn sync<G, E, Fb, F, B, ExF, U>(
 	ExF: FnMut(&F, &U) -> <F::Block as BlockT>::Extrinsic,
 	U: Clone + Send + 'static,
 	E: ChainSpecExtension + Clone + 'static + Send + Sync,
-	G: RuntimeGenesis + 'static,
 {
 	const NUM_FULL_NODES: usize = 10;
 	const NUM_BLOCKS: usize = 512;
@@ -509,18 +505,19 @@ pub fn sync<G, E, Fb, F, B, ExF, U>(
 	)
 	.expect("failed to submit extrinsic");
 
-	network.run_until_all_full(|_index, service| service.transaction_pool().ready().count() == 1);
+	network.run_until_all_full(move |_index, service| {
+		service.transaction_pool().ready(best_block).unwrap().count() == 1
+	});
 }
 
-pub fn consensus<G, E, Fb, F>(
-	spec: GenericChainSpec<G, E>,
+pub fn consensus<E, Fb, F>(
+	spec: GenericChainSpec<E>,
 	full_builder: Fb,
 	authorities: impl IntoIterator<Item = String>,
 ) where
 	Fb: Fn(Configuration) -> Result<F, Error>,
 	F: TestNetNode,
 	E: ChainSpecExtension + Clone + 'static + Send + Sync,
-	G: RuntimeGenesis + 'static,
 {
 	const NUM_FULL_NODES: usize = 10;
 	const NUM_BLOCKS: usize = 10; // 10 * 2 sec block production time = ~20 seconds

@@ -83,7 +83,7 @@ fn unwrap_heap_pages(pages: Option<HeapAllocStrategy>) -> HeapAllocStrategy {
 }
 
 /// Builder for creating a [`WasmExecutor`] instance.
-pub struct WasmExecutorBuilder<H> {
+pub struct WasmExecutorBuilder<H = sp_io::SubstrateHostFunctions> {
 	_phantom: PhantomData<H>,
 	method: WasmExecutionMethod,
 	onchain_heap_alloc_strategy: Option<HeapAllocStrategy>,
@@ -232,7 +232,7 @@ impl<H> WasmExecutorBuilder<H> {
 
 /// An abstraction over Wasm code executor. Supports selecting execution backend and
 /// manages runtime cache.
-pub struct WasmExecutor<H> {
+pub struct WasmExecutor<H = sp_io::SubstrateHostFunctions> {
 	/// Method used to execute fallback Wasm code.
 	method: WasmExecutionMethod,
 	/// The heap allocation strategy for onchain Wasm calls.
@@ -269,10 +269,13 @@ impl<H> Clone for WasmExecutor<H> {
 	}
 }
 
-impl<H> WasmExecutor<H>
-where
-	H: HostFunctions,
-{
+impl Default for WasmExecutor<sp_io::SubstrateHostFunctions> {
+	fn default() -> Self {
+		WasmExecutorBuilder::new().build()
+	}
+}
+
+impl<H> WasmExecutor<H> {
 	/// Create new instance.
 	///
 	/// # Parameters
@@ -330,7 +333,12 @@ where
 	pub fn allow_missing_host_functions(&mut self, allow_missing_host_functions: bool) {
 		self.allow_missing_host_functions = allow_missing_host_functions
 	}
+}
 
+impl<H> WasmExecutor<H>
+where
+	H: HostFunctions,
+{
 	/// Execute the given closure `f` with the latest runtime (based on `runtime_code`).
 	///
 	/// The closure `f` is expected to return `Err(_)` when there happened a `panic!` in native code
@@ -579,6 +587,9 @@ where
 
 /// A generic `CodeExecutor` implementation that uses a delegate to determine wasm code equivalence
 /// and dispatch to native code when possible, falling back on `WasmExecutor` when not.
+#[deprecated(
+	note = "Native execution will be deprecated, please replace with `WasmExecutor`. Will be removed at end of 2024."
+)]
 pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 	/// Native runtime version info.
 	native_version: NativeVersion,
@@ -589,6 +600,7 @@ pub struct NativeElseWasmExecutor<D: NativeExecutionDispatch> {
 	use_native: bool,
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
 	///
 	/// Create new instance.
@@ -649,6 +661,7 @@ impl<D: NativeExecutionDispatch> NativeElseWasmExecutor<D> {
 	}
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch> RuntimeVersionOf for NativeElseWasmExecutor<D> {
 	fn runtime_version(
 		&self,
@@ -659,12 +672,14 @@ impl<D: NativeExecutionDispatch> RuntimeVersionOf for NativeElseWasmExecutor<D> 
 	}
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch> GetNativeVersion for NativeElseWasmExecutor<D> {
 	fn native_version(&self) -> &NativeVersion {
 		&self.native_version
 	}
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecutor<D> {
 	type Error = Error;
 
@@ -739,6 +754,7 @@ impl<D: NativeExecutionDispatch + 'static> CodeExecutor for NativeElseWasmExecut
 	}
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 	fn clone(&self) -> Self {
 		NativeElseWasmExecutor {
@@ -749,6 +765,7 @@ impl<D: NativeExecutionDispatch> Clone for NativeElseWasmExecutor<D> {
 	}
 }
 
+#[allow(deprecated)]
 impl<D: NativeExecutionDispatch> sp_core::traits::ReadRuntimeVersion for NativeElseWasmExecutor<D> {
 	fn read_runtime_version(
 		&self,
@@ -786,6 +803,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn native_executor_registers_custom_interface() {
 		let executor = NativeElseWasmExecutor::<MyExecutorDispatch>::new_with_wasm_executor(
 			WasmExecutor::builder().build(),

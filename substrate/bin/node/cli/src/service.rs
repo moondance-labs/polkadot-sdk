@@ -20,6 +20,11 @@
 
 //! Service implementation. Specialized wrapper over substrate service.
 
+use polkadot_sdk::{
+	sc_consensus_beefy as beefy, sc_consensus_grandpa as grandpa,
+	sp_consensus_beefy as beefy_primitives, *,
+};
+
 use crate::Cli;
 use codec::Encode;
 use frame_benchmarking_cli::SUBSTRATE_REFERENCE_HARDWARE;
@@ -36,6 +41,7 @@ use sc_network_sync::{strategy::warp::WarpSyncParams, SyncingService};
 use sc_service::{config::Configuration, error::Error as ServiceError, RpcHandlers, TaskManager};
 use sc_statement_store::Store as StatementStore;
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_transaction_pool::TransactionPoolImpl;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::ProvideRuntimeApi;
 use sp_core::crypto::Pair;
@@ -65,11 +71,16 @@ type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 type FullGrandpaBlockImport =
 	grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
-type FullBeefyBlockImport<InnerBlockImport> =
-	beefy::import::BeefyBlockImport<Block, FullBackend, FullClient, InnerBlockImport>;
+type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
+	Block,
+	FullBackend,
+	FullClient,
+	InnerBlockImport,
+	beefy_primitives::ecdsa_crypto::AuthorityId,
+>;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::FullPool<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolImpl<Block, FullClient>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -126,6 +137,7 @@ pub fn create_extrinsic(
 					kitchensink_runtime::Runtime,
 				>::from(tip, None),
 			),
+			frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		);
 
 	let raw_payload = kitchensink_runtime::SignedPayload::from_raw(
@@ -140,6 +152,7 @@ pub fn create_extrinsic(
 			(),
 			(),
 			(),
+			None,
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));
@@ -162,7 +175,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::FullPool<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolImpl<Block, FullClient>,
 		(
 			impl Fn(
 				node_rpc::DenyUnsafe,
@@ -176,7 +189,7 @@ pub fn new_partial(
 				>,
 				grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 				sc_consensus_babe::BabeLink<Block>,
-				beefy::BeefyVoterLinks<Block>,
+				beefy::BeefyVoterLinks<Block, beefy_primitives::ecdsa_crypto::AuthorityId>,
 			),
 			grandpa::SharedVoterState,
 			Option<Telemetry>,
@@ -214,13 +227,14 @@ pub fn new_partial(
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-		config.transaction_pool.clone(),
-		config.role.is_authority().into(),
-		config.prometheus_registry(),
-		task_manager.spawn_essential_handle(),
-		client.clone(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new()
+		.with_options(config.transaction_pool.clone())
+		.build(
+			config.role.is_authority().into(),
+			config.prometheus_registry(),
+			task_manager.spawn_essential_handle(),
+			client.clone(),
+		);
 
 	let (grandpa_block_import, grandpa_link) = grandpa::block_import(
 		client.clone(),
@@ -324,7 +338,7 @@ pub fn new_partial(
 						subscription_executor: subscription_executor.clone(),
 						finality_provider: finality_proof_provider.clone(),
 					},
-					beefy: node_rpc::BeefyDeps {
+					beefy: node_rpc::BeefyDeps::<beefy_primitives::ecdsa_crypto::AuthorityId> {
 						beefy_finality_proof_stream: beefy_rpc_links
 							.from_voter_justif_stream
 							.clone(),
@@ -374,7 +388,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPool>,
+	pub transaction_pool: Arc<TransactionPoolImpl<Block, FullClient>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -668,7 +682,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	let beefy_params = beefy::BeefyParams {
 		client: client.clone(),
 		backend: backend.clone(),
-		payload_provider: beefy_primitives::mmr::MmrRootProvider::new(client.clone()),
+		payload_provider: sp_consensus_beefy::mmr::MmrRootProvider::new(client.clone()),
 		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network_params,
@@ -679,7 +693,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		is_authority: role.is_authority(),
 	};
 
-	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _>(beefy_params);
+	let beefy_gadget = beefy::start_beefy_gadget::<_, _, _, _, _, _, _, _>(beefy_params);
 	// BEEFY is part of consensus, if it fails we'll bring the node down with it to make sure it
 	// is noticed.
 	task_manager
@@ -842,13 +856,14 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, UncheckedExtrinsic,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
 	use sc_consensus_epochs::descendent_query;
 	use sc_keystore::LocalKeystore;
 	use sc_service_test::TestNetNode;
-	use sc_transaction_pool_api::{ChainEvent, MaintainedTransactionPool};
+	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
 	use sp_core::crypto::Pair;
 	use sp_inherents::InherentDataProvider;
@@ -1041,6 +1056,7 @@ mod tests {
 				let tx_payment = pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
+				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let extra = (
 					check_non_zero_sender,
 					check_spec_version,
@@ -1050,11 +1066,22 @@ mod tests {
 					check_nonce,
 					check_weight,
 					tx_payment,
+					metadata_hash,
 				);
 				let raw_payload = SignedPayload::from_raw(
 					function,
 					extra,
-					((), spec_version, transaction_version, genesis_hash, genesis_hash, (), (), ()),
+					(
+						(),
+						spec_version,
+						transaction_version,
+						genesis_hash,
+						genesis_hash,
+						(),
+						(),
+						(),
+						None,
+					),
 				);
 				let signature = raw_payload.using_encoded(|payload| signer.sign(payload));
 				let (function, extra, _) = raw_payload.deconstruct();

@@ -37,8 +37,8 @@ use sc_client_api::{
 use sc_client_db::{Backend, DatabaseSettings};
 use sc_consensus::import_queue::ImportQueue;
 use sc_executor::{
-	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeElseWasmExecutor,
-	NativeExecutionDispatch, RuntimeVersionOf, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
+	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
@@ -263,11 +263,15 @@ where
 	Ok((client, backend, keystore_container, task_manager))
 }
 
-/// Creates a [`NativeElseWasmExecutor`] according to [`Configuration`].
+/// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
+/// [`Configuration`].
+#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
+#[allow(deprecated)]
 pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
 	config: &Configuration,
-) -> NativeElseWasmExecutor<D> {
-	NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
+) -> sc_executor::NativeElseWasmExecutor<D> {
+	#[allow(deprecated)]
+	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(config))
 }
 
 /// Creates a [`WasmExecutor`] according to [`Configuration`].
@@ -351,7 +355,7 @@ where
 }
 
 /// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool: ?Sized, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -407,7 +411,8 @@ where
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static + ?Sized,
 {
 	let SpawnTasksParams {
 		mut config,
@@ -538,12 +543,13 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
+	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	// transaction notifications
 	transaction_pool
 		.import_notification_stream()
 		.for_each(move |hash| {
+			log::debug!("[{hash:?} ] import_notification_stream: received");
 			tx_handler_controller.propagate_transaction(hash);
 			let status = transaction_pool.status();
 			telemetry!(
@@ -625,7 +631,8 @@ where
 		+ 'static,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static + ?Sized,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
 {
@@ -738,7 +745,7 @@ pub struct BuildNetworkParams<
 	'a,
 	TBl: BlockT,
 	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
-	TExPool,
+	TExPool: ?Sized,
 	TImpQu,
 	TCl,
 > {
@@ -790,7 +797,7 @@ where
 		+ HeaderBackend<TBl>
 		+ BlockchainEvents<TBl>
 		+ 'static,
-	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
+	TExPool: TransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static + ?Sized,
 	TImpQu: ImportQueue<TBl> + 'static,
 	TNet: NetworkBackend<TBl, <TBl as BlockT>::Hash>,
 {
