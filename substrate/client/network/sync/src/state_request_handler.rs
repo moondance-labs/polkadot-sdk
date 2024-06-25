@@ -44,7 +44,7 @@ use std::{
 };
 
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024; // Actual reponse may be bigger.
-const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
+const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 15;
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
