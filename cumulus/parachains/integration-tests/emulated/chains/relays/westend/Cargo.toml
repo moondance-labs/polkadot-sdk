@@ -26,7 +26,7 @@ polkadot-primitives = { path = "../../../../../../../polkadot/primitives", defau
 westend-runtime-constants = { path = "../../../../../../../polkadot/runtime/westend/constants", default-features = false }
 westend-runtime = { path = "../../../../../../../polkadot/runtime/westend" }
 xcm = { package = "staging-xcm", path = "../../../../../../../polkadot/xcm", default-features = false }
-xcm-fee-payment-runtime-api = { path = "../../../../../../../polkadot/xcm/xcm-fee-payment-runtime-api", default-features = false }
+xcm-runtime-apis = { path = "../../../../../../../polkadot/xcm/xcm-runtime-apis", default-features = false }
 
 # Cumulus
 parachains-common = { path = "../../../../../common" }
