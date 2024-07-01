@@ -123,6 +123,7 @@ pub trait FullClientTransactionPool<Block, Client>:
 		Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
 		Error = <FullChainApi<Client, Block> as ChainApi>::Error,
 	>
+	+ std::any::Any
 where
 	Block: BlockT,
 	Client: sp_api::ProvideRuntimeApi<Block>
@@ -133,6 +134,7 @@ where
 		+ 'static,
 	Client::Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,
 {
+	fn as_any(&self) -> &dyn std::any::Any;
 }
 
 impl<Block, Client, P> FullClientTransactionPool<Block, Client> for P
@@ -157,8 +159,11 @@ where
 			Block = Block,
 			Hash = crate::graph::ExtrinsicHash<FullChainApi<Client, Block>>,
 			Error = <FullChainApi<Client, Block> as ChainApi>::Error,
-		>,
+		> + 'static
 {
+	fn as_any(&self) -> &dyn std::any::Any {
+		self as &dyn std::any::Any
+	}
 }
 
 /// The type alias for a dynamic trait object implementing

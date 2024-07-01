@@ -37,7 +37,7 @@ pub use fork_aware_txpool::{ForkAwareTxPool, ImportNotificationTask};
 pub use graph::{base_pool::Limit as PoolLimit, ChainApi, Options, Pool};
 use single_state_txpool::prune_known_txs_for_block;
 pub use single_state_txpool::{notification_future, BasicPool, RevalidationType};
-
+pub use builder::FullClientTransactionPool;
 type BoxedReadyIterator<Hash, Data> = Box<
 	dyn sc_transaction_pool_api::ReadyTransactions<
 			Item = Arc<graph::base_pool::Transaction<Hash, Data>>,
