@@ -53,7 +53,7 @@ use std::{
 	cmp::min,
 	hash::{Hash, Hasher},
 	sync::Arc,
-	time::{Duration, Instant},
+	time::Duration,
 };
 
 /// Maximum blocks per response.
@@ -111,7 +111,7 @@ fn generate_legacy_protocol_name(protocol_id: &ProtocolId) -> String {
 }
 
 /// The key of [`BlockRequestHandler::seen_requests`].
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone)]
 struct SeenRequestsKey<B: BlockT> {
 	peer: PeerId,
 	from: BlockId<B>,
@@ -139,9 +139,9 @@ impl<B: BlockT> Hash for SeenRequestsKey<B> {
 /// The value of [`BlockRequestHandler::seen_requests`].
 enum SeenRequestsValue {
 	/// First time we have seen the request.
-	First(Instant),
+	First,
 	/// We have fulfilled the request `n` times.
-	Fulfilled(Vec<Instant>, usize),
+	Fulfilled(usize),
 }
 
 /// The full block server implementation of [`BlockServer`]. It handles
@@ -260,10 +260,9 @@ where
 			.is_empty();
 
 		match self.seen_requests.get(&key) {
-			Some(SeenRequestsValue::First(_)) => {},
-			Some(SeenRequestsValue::Fulfilled(ref mut instants, ref mut requests)) => {
+			Some(SeenRequestsValue::First) => {},
+			Some(SeenRequestsValue::Fulfilled(ref mut requests)) => {
 				*requests = requests.saturating_add(1);
-				instants.push(Instant::now());
 
 				if *requests > MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
 					reputation_change = Some(if small_request {
@@ -271,26 +270,10 @@ where
 					} else {
 						rep::SAME_REQUEST
 					});
-					let instants_fmt: Vec<String> = instants.iter().map(|instant| {
-						let elapsed = instant.elapsed();
-						let seconds = elapsed.as_secs();
-						let hours = seconds / 3600;
-						let minutes = (seconds % 3600) / 60;
-						let secs = seconds % 60;
-
-						if hours > 0 {
-							format!("{}h {}m {}s", hours, minutes, secs)
-						} else if minutes > 0 {
-							format!("{}m {}s", minutes, secs)
-						} else {
-							format!("{}s", secs)
-						}
-					}).collect();
-					log::warn!(target: LOG_TARGET, "Bug same request {} times{}: {:?}. Instants: {:?}", *requests, if small_request { " (small)" } else { "" }, key, instants_fmt);
 				}
 			},
 			None => {
-				self.seen_requests.insert(key.clone(), SeenRequestsValue::First(Instant::now()));
+				self.seen_requests.insert(key.clone(), SeenRequestsValue::First);
 			},
 		}
 
@@ -320,8 +303,8 @@ where
 				if let Some(value) = self.seen_requests.get(&key) {
 					// If this is the first time we have processed this request, we need to change
 					// it to `Fulfilled`.
-					if let SeenRequestsValue::First(instant) = value {
-						*value = SeenRequestsValue::Fulfilled(vec![*instant], 1);
+					if let SeenRequestsValue::First = value {
+						*value = SeenRequestsValue::Fulfilled(1);
 					}
 				}
 			}
