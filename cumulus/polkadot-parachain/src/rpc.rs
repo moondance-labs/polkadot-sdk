@@ -35,7 +35,7 @@ use substrate_state_trie_migration_rpc::{StateMigration, StateMigrationApiServer
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
 
-pub(crate) trait BuildRpcExtensions<Client, Backend, Pool> {
+pub(crate) trait BuildRpcExtensions<Client, Backend, Pool: ?Sized> {
 	fn build_rpc_extensions(
 		deny_unsafe: DenyUnsafe,
 		client: Arc<Client>,

@@ -34,43 +34,27 @@ serde_json = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 # personal fork here as workaround for: https://github.com/rust-bitcoin/rust-bip39/pull/64
 bip39 = { package = "parity-bip39", version = "2.0.1", features = ["rand"] }
-tokio = { features = ["parking_lot", "rt-multi-thread", "signal"], workspace = true, default-features = true }
-sc-client-api.workspace = true
-sc-client-api.default-features = true
-sc-client-db.workspace = true
-sc-keystore.workspace = true
-sc-keystore.default-features = true
-sc-mixnet.workspace = true
-sc-mixnet.default-features = true
-sc-network.workspace = true
-sc-network.default-features = true
-sc-service.workspace = true
-sc-telemetry.workspace = true
-sc-telemetry.default-features = true
-sc-tracing.workspace = true
-sc-tracing.default-features = true
-sc-utils.workspace = true
-sc-utils.default-features = true
-sp-blockchain.workspace = true
-sp-blockchain.default-features = true
-sp-core.workspace = true
-sp-core.default-features = true
-sp-keyring.workspace = true
-sp-keyring.default-features = true
-sp-keystore.workspace = true
-sp-keystore.default-features = true
-sp-panic-handler.workspace = true
-sp-panic-handler.default-features = true
-sp-runtime.workspace = true
-sp-runtime.default-features = true
-sp-version.workspace = true
-sp-version.default-features = true
-sp-state-machine.workspace = true
-sp-state-machine.default-features = true
-sc-executor.workspace = true
-sc-executor.default-features = true
-sp-storage.workspace = true
-sp-storage.default-features = true
+tokio = { version = "1.22.0", features = ["parking_lot", "rt-multi-thread", "signal"] }
+sc-client-api = { path = "../api" }
+sc-client-db = { path = "../db", default-features = false}
+sc-executor = { path = "../executor" }
+sc-keystore = { path = "../keystore" }
+sc-mixnet = { path = "../mixnet" }
+sc-network = { path = "../network" }
+sc-service = { path = "../service", default-features = false }
+sc-telemetry = { path = "../telemetry" }
+sc-tracing = { path = "../tracing" }
+sc-transaction-pool = { path = "../transaction-pool" }
+sc-utils = { path = "../utils" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-core = { path = "../../primitives/core" }
+sp-keyring = { path = "../../primitives/keyring" }
+sp-keystore = { path = "../../primitives/keystore" }
+sp-panic-handler = { path = "../../primitives/panic-handler" }
+sp-runtime = { path = "../../primitives/runtime" }
+sp-state-machine = { path = "../../primitives/state-machine" }
+sp-storage = { path = "../../primitives/storage" }
+sp-version = { path = "../../primitives/version" }
 
 [dev-dependencies]
 tempfile = { workspace = true }

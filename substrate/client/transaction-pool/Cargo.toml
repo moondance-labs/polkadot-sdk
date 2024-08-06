@@ -25,28 +25,20 @@ log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
 serde = { features = ["derive"], workspace = true, default-features = true }
 thiserror = { workspace = true }
-prometheus-endpoint.workspace = true
-prometheus-endpoint.default-features = true
-sc-client-api.workspace = true
-sc-client-api.default-features = true
-sc-transaction-pool-api.workspace = true
-sc-transaction-pool-api.default-features = true
-sc-utils.workspace = true
-sc-utils.default-features = true
-sp-api.workspace = true
-sp-api.default-features = true
-sp-blockchain.workspace = true
-sp-blockchain.default-features = true
-sp-core.workspace = true
-sp-core.default-features = true
-sp-crypto-hashing.workspace = true
-sp-crypto-hashing.default-features = true
-sp-runtime.workspace = true
-sp-runtime.default-features = true
-sp-tracing.workspace = true
-sp-tracing.default-features = true
-sp-transaction-pool.workspace = true
-sp-transaction-pool.default-features = true
+tokio-stream = "0.1.14"
+tokio = { version = "1.32.0", features = ["macros", "time"] }
+prometheus-endpoint = { package = "substrate-prometheus-endpoint", path = "../../utils/prometheus" }
+sc-client-api = { path = "../api" }
+sc-transaction-pool-api = { path = "api" }
+sc-utils = { path = "../utils" }
+sp-api = { path = "../../primitives/api" }
+sp-blockchain = { path = "../../primitives/blockchain" }
+sp-core = { path = "../../primitives/core" }
+sp-crypto-hashing = { path = "../../primitives/crypto/hashing" }
+sp-runtime = { path = "../../primitives/runtime" }
+sp-tracing = { path = "../../primitives/tracing" }
+sp-transaction-pool = { path = "../../primitives/transaction-pool" }
+itertools = "0.10.3"
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }

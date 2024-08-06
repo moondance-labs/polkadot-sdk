@@ -92,7 +92,7 @@ pub type Service<RuntimeApi> = PartialComponents<
 	ParachainBackend,
 	(),
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+	sc_transaction_pool::TransactionPoolImpl<Block, ParachainClient<RuntimeApi>>,
 	(ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
