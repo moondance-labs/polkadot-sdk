@@ -163,6 +163,18 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client.chain_get_finalized_head().await
 	}
 
+	async fn call_remote_runtime_function(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+        // TODO: using self.rpc_client.call_remote_runtime_function is wrong!
+        // We need a new function that does not encode the payload, our payload is already encoded. Same for result
+		//self.rpc_client.call_remote_runtime_function(method_name, hash, payload).await
+        unimplemented!("call_remote_runtime_function not supported for RelayChainRpcInterface")
+	}
+
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
 		self.rpc_client.system_health().await.map(|h| h.is_syncing)
 	}

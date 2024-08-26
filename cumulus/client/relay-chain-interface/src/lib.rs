@@ -22,11 +22,12 @@ use sc_client_api::StorageProof;
 use sp_version::RuntimeVersion;
 
 use async_trait::async_trait;
-use codec::Error as CodecError;
+use codec::{Decode, Encode, Error as CodecError};
 use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
 use cumulus_primitives_core::relay_chain::BlockId;
+use cumulus_primitives_core::relay_chain::Hash as RelayHash;
 pub use cumulus_primitives_core::{
 	relay_chain::{
 		BlockNumber, CommittedCandidateReceipt, CoreState, Hash as PHash, Header as PHeader,
@@ -116,6 +117,13 @@ pub trait RelayChainInterface: Send + Sync {
 
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
+
+	async fn call_remote_runtime_function(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>>;
 
 	/// Returns the whole contents of the downward message queue for the parachain we are collating
 	/// for.
@@ -294,6 +302,15 @@ where
 
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash> {
 		(**self).finalized_block_hash().await
+	}
+
+	async fn call_remote_runtime_function(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: &[u8],
+	) -> RelayChainResult<Vec<u8>> {
+		(**self).call_remote_runtime_function(method_name, hash, payload).await
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
