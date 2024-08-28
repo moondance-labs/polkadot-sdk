@@ -383,7 +383,7 @@ where
 }
 
 pub async fn call_remote_runtime_function<R>(
-    client: &impl RelayChainInterface,
+    client: &(impl RelayChainInterface + ?Sized),
     method_name: &'static str,
     hash: RelayHash,
     payload: impl Encode,
