@@ -176,7 +176,7 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 		Ok(self.backend.blockchain().info().finalized_hash)
 	}
 
-	async fn call_remote_runtime_function(
+	async fn call_remote_runtime_function_encoded(
 		&self,
 		method_name: &'static str,
 		hash: PHash,

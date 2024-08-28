@@ -163,11 +163,11 @@ impl RelayChainInterface for RelayChainRpcInterface {
 		self.rpc_client.chain_get_finalized_head().await
 	}
 
-	async fn call_remote_runtime_function(
+	async fn call_remote_runtime_function_encoded(
 		&self,
-		method_name: &'static str,
-		hash: RelayHash,
-		payload: &[u8],
+		_method_name: &'static str,
+		_hash: RelayHash,
+		_payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
         // TODO: using self.rpc_client.call_remote_runtime_function is wrong!
         // We need a new function that does not encode the payload, our payload is already encoded. Same for result

@@ -118,7 +118,7 @@ pub trait RelayChainInterface: Send + Sync {
 	/// Get the hash of the finalized block.
 	async fn finalized_block_hash(&self) -> RelayChainResult<PHash>;
 
-	async fn call_remote_runtime_function(
+	async fn call_remote_runtime_function_encoded(
 		&self,
 		method_name: &'static str,
 		hash: RelayHash,
@@ -304,13 +304,13 @@ where
 		(**self).finalized_block_hash().await
 	}
 
-	async fn call_remote_runtime_function(
+	async fn call_remote_runtime_function_encoded(
 		&self,
 		method_name: &'static str,
 		hash: RelayHash,
 		payload: &[u8],
 	) -> RelayChainResult<Vec<u8>> {
-		(**self).call_remote_runtime_function(method_name, hash, payload).await
+		(**self).call_remote_runtime_function_encoded(method_name, hash, payload).await
 	}
 
 	async fn is_major_syncing(&self) -> RelayChainResult<bool> {
@@ -380,4 +380,19 @@ where
 	async fn version(&self, relay_parent: PHash) -> RelayChainResult<RuntimeVersion> {
 		(**self).version(relay_parent).await
 	}
+}
+
+impl dyn RelayChainInterface {
+	pub async fn call_remote_runtime_function<R>(
+		&self,
+		method_name: &'static str,
+		hash: RelayHash,
+		payload: impl Encode,
+	) -> RelayChainResult<R>
+	where R: Decode
+	{
+		let res = self.call_remote_runtime_function_encoded(method_name, hash, &payload.encode()).await?;
+		Decode::decode(&mut &*res).map_err(Into::into)
+	}
+
 }
