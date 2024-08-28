@@ -382,17 +382,14 @@ where
 	}
 }
 
-impl dyn RelayChainInterface {
-	pub async fn call_remote_runtime_function<R>(
-		&self,
-		method_name: &'static str,
-		hash: RelayHash,
-		payload: impl Encode,
-	) -> RelayChainResult<R>
-	where R: Decode
-	{
-		let res = self.call_remote_runtime_function_encoded(method_name, hash, &payload.encode()).await?;
-		Decode::decode(&mut &*res).map_err(Into::into)
-	}
-
+pub async fn call_remote_runtime_function<R>(
+    client: &impl RelayChainInterface,
+    method_name: &'static str,
+    hash: RelayHash,
+    payload: impl Encode,
+) -> RelayChainResult<R>
+where R: Decode
+{
+    let res = client.call_remote_runtime_function_encoded(method_name, hash, &payload.encode()).await?;
+    Decode::decode(&mut &*res).map_err(Into::into)
 }
