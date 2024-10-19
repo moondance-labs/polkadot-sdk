@@ -358,7 +358,7 @@ pub mod pallet {
 		/// and validate the given key ownership proof against the extracted offender.
 		/// If both are valid, the offence will be reported.
 		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
@@ -389,7 +389,7 @@ pub mod pallet {
 		/// if the block author is defined it will be defined as the equivocation
 		/// reporter.
 		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::report_fork_voting(
+		#[pallet::weight(T::WeightInfo::report_future_block_voting(
 			key_owner_proof.validator_count(),
 			T::MaxNominators::get(),
 		))]
