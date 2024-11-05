@@ -103,8 +103,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
-use codec::Decode;
+use bridge_hub_common::{CustomDigestItem};
+use codec::{Decode, FullCodec};
+use sp_runtime::traits::{Convert, Debug};
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
@@ -144,7 +145,9 @@ pub mod pallet {
 
 		type Hashing: Hash<Output = H256>;
 
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type AggregateMessageOrigin: FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug;
+		type GetAggregateMessageOrigin: Convert<ChannelId, Self::AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Measures the maximum gas used to execute a command on Ethereum
 		type GasMeter: GasMeter;
