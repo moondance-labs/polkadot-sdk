@@ -22,6 +22,7 @@ use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::AssetsInHolding;
 
+use crate::xcm_message_processor::XCMMessageProcessor;
 use crate::{self as inbound_queue};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -163,10 +164,10 @@ impl StaticLookup for MockChannelLookup {
 	type Target = Channel;
 
 	fn lookup(channel_id: Self::Source) -> Option<Self::Target> {
-		if channel_id !=
-			hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
+		if channel_id
+			!= hex!("c173fac324158e77fb5840738a1a541f633cbec8884c6a601c567d2b376a0539").into()
 		{
-			return None
+			return None;
 		}
 		Some(Channel { agent_id: H256::zero(), para_id: ASSET_HUB_PARAID.into() })
 	}
@@ -226,6 +227,7 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
+	type MessageProcessor = (XCMMessageProcessor<Test>,);
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
