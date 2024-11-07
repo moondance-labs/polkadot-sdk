@@ -16,7 +16,7 @@ use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
-	BuildStorage, FixedU128, MultiSignature,
+	BuildStorage, DispatchError, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
@@ -205,6 +205,30 @@ impl TransactAsset for SuccessfulTransactor {
 	}
 }
 
+pub struct DummyPrefix;
+
+impl MessageProcessor for DummyPrefix {
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
+		(false, Weight::zero())
+	}
+
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor for DummySuffix {
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
+		(true, Weight::zero())
+	}
+
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -227,7 +251,7 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-	type MessageProcessor = (XCMMessageProcessor<Test>,);
+	type MessageProcessor = (DummyPrefix, XCMMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for tuple
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
