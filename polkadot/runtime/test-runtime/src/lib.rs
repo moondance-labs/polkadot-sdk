@@ -30,6 +30,8 @@ use alloc::{
 use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
+use polkadot_runtime_parachains::inclusion::AggregateMessageOrigin;
+use polkadot_runtime_parachains::inclusion::UmpQueueId;
 use polkadot_runtime_parachains::{
 	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio, coretime,
@@ -83,8 +85,8 @@ use sp_runtime::{
 	curve::PiecewiseLinear,
 	generic, impl_opaque_keys,
 	traits::{
-		BlakeTwo256, Block as BlockT, ConvertInto, OpaqueKeys, SaturatedConversion, StaticLookup,
-		Verify,
+		BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic as ExtrinsicT, OpaqueKeys,
+		SaturatedConversion, StaticLookup, Verify, Convert
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent,
@@ -521,10 +523,31 @@ impl parachains_shared::Config for Runtime {
 	type DisabledValidators = Session;
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(queue_id)
+	}
+}
+
+pub struct GetParaFromAggregateMessageOrigin;
+
+impl Convert<AggregateMessageOrigin, ParaId> for GetParaFromAggregateMessageOrigin {
+	fn convert(x: AggregateMessageOrigin) -> ParaId {
+		match x {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidatorsWithEraPoints<Runtime>;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = ();
 	type WeightInfo = ();
 }
