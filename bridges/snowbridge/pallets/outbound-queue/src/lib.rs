@@ -103,8 +103,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
-use codec::Decode;
+use bridge_hub_common::{CustomDigestItem};
+use codec::{Decode, FullCodec};
+use sp_runtime::traits::{Convert, Debug};
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, Contains, Defensive, EnqueueMessage, Get, ProcessMessageError},
@@ -144,7 +145,9 @@ pub mod pallet {
 
 		type Hashing: Hash<Output = H256>;
 
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type AggregateMessageOrigin: FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug;
+		type GetAggregateMessageOrigin: Convert<ChannelId, Self::AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Measures the maximum gas used to execute a command on Ethereum
 		type GasMeter: GasMeter;
@@ -176,7 +179,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Message has been queued and will be processed in the future
 		MessageQueued {
@@ -220,7 +223,7 @@ pub mod pallet {
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<CommittedMessage>, ValueQuery>;
+	pub type Messages<T: Config> = StorageValue<_, Vec<CommittedMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in
@@ -228,7 +231,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn message_leaves)]
-	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
+	pub type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for each message origin
 	#[pallet::storage]
