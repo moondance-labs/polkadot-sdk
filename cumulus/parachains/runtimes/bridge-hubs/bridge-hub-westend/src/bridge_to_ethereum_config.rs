@@ -30,7 +30,7 @@ use hex_literal::hex;
 use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_core::{gwei, meth, AllowSiblingsOnly, ChannelId, PricingParameters, Rewards};
 use snowbridge_inbound_queue_primitives::v2::CreateAssetCallInfo;
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
@@ -38,7 +38,7 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::H160;
 use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
+	traits::{ConstU32, ConstU8, Convert, Keccak256},
 	FixedU128,
 };
 use testnet_parachains_constants::westend::{
@@ -161,6 +161,13 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 }
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
+}
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -175,6 +182,8 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 }
 
 impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {

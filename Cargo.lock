@@ -22608,6 +22608,7 @@ dependencies = [
 name = "snowbridge-pallet-system"
 version = "0.18.0"
 dependencies = [
+ "bridge-hub-common",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

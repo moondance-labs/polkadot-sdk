@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use crate as snowbridge_system;
+use crate::ChannelId;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{tokens::fungible::Mutate, ConstU128, ConstU8},
@@ -16,13 +17,15 @@ use snowbridge_core::{
 };
 use snowbridge_outbound_queue_primitives::v1::ConstantGasMeter;
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
+	traits::{AccountIdConversion, BlakeTwo256, Convert, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
 use xcm::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 use crate::BenchmarkHelper;
+
+pub use bridge_hub_common::AggregateMessageOrigin;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type Balance = u128;
@@ -159,6 +162,14 @@ parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
+}
+
 impl snowbridge_pallet_outbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
@@ -170,6 +181,8 @@ impl snowbridge_pallet_outbound_queue::Config for Test {
 	type Balance = u128;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 }

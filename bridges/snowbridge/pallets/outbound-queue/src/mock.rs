@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+pub use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{Everything, Hooks},
 	weights::IdentityFee,
 };
-
 use snowbridge_core::{
 	gwei, meth,
 	pricing::{PricingParameters, Rewards},
@@ -78,6 +78,14 @@ parameter_types! {
 	};
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
+}
+
 pub const DOT: u128 = 10_000_000_000;
 
 impl crate::Config for Test {
@@ -91,6 +99,8 @@ impl crate::Config for Test {
 	type Balance = u128;
 	type PricingParameters = Parameters;
 	type Channels = Everything;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 	type WeightToFee = IdentityFee<u128>;
 	type WeightInfo = ();
 }
