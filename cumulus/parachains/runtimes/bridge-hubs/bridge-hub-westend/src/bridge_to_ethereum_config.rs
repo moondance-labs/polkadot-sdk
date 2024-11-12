@@ -21,20 +21,23 @@ use crate::{
 	Balances, BridgeRelayers, EthereumInboundQueue, EthereumOutboundQueue, EthereumOutboundQueueV2,
 	EthereumSystem, EthereumSystemV2, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 };
+#[cfg(feature = "runtime-benchmarks")]
+use benchmark_helpers::DoNothingRouter;
 use bp_asset_hub_westend::CreateForeignAssetDeposit;
+use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, traits::Contains, weights::ConstantMultiplier};
 use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_core::{gwei, meth, AllowSiblingsOnly, ChannelId, PricingParameters, Rewards};
 use snowbridge_outbound_queue_primitives::{
 	v1::{ConstantGasMeter, EthereumBlobExporter},
 	v2::{ConstantGasMeter as ConstantGasMeterV2, EthereumBlobExporter as EthereumBlobExporterV2},
 };
 use sp_core::H160;
 use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
+	traits::{ConstU32, ConstU8, Convert, Keccak256},
 	FixedU128,
 };
 use testnet_parachains_constants::westend::{
@@ -155,6 +158,13 @@ impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 }
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
+}
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -169,6 +179,8 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 }
 
 impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
@@ -284,8 +296,9 @@ pub struct AllowFromEthereumFrontend;
 impl Contains<Location> for AllowFromEthereumFrontend {
 	fn contains(location: &Location) -> bool {
 		match location.unpack() {
-			(1, [Parachain(para_id), PalletInstance(index)]) =>
-				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX,
+			(1, [Parachain(para_id), PalletInstance(index)]) => {
+				return *para_id == ASSET_HUB_ID && *index == FRONTEND_PALLET_INDEX
+			},
 			_ => false,
 		}
 	}
