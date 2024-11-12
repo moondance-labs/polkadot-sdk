@@ -19,6 +19,8 @@
 //! It is responsible for carrying candidates from being backable to being backed, and then from
 //! backed to included.
 
+use codec::FullCodec;
+use sp_runtime::traits::{Convert, Debug};
 use crate::{
 	configuration::{self, HostConfiguration},
 	disputes, dmp, hrmp,
@@ -268,7 +270,7 @@ impl From<u32> for AggregateMessageOrigin {
 
 /// The maximal length of a UMP message.
 pub type MaxUmpMessageLenOf<T> =
-	<<T as Config>::MessageQueue as EnqueueMessage<AggregateMessageOrigin>>::MaxMessageLen;
+	<<T as Config>::MessageQueue as EnqueueMessage<<T as Config>::AggregateMessageOrigin>>::MaxMessageLen;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -294,12 +296,15 @@ pub mod pallet {
 		type DisputesHandler: disputes::DisputesHandler<BlockNumberFor<Self>>;
 		type RewardValidators: RewardValidators;
 
+		type AggregateMessageOrigin: FullCodec + MaxEncodedLen + Clone + Eq + PartialEq + TypeInfo + Debug;
+		type GetAggregateMessageOrigin: Convert<UmpQueueId, Self::AggregateMessageOrigin>;
+		type GetParaFromAggregateMessageOrigin: Convert<Self::AggregateMessageOrigin, ParaId>;
 		/// The system message queue.
 		///
 		/// The message queue provides general queueing and processing functionality. Currently it
 		/// replaces the old `UMP` dispatch queue. Other use-cases can be implemented as well by
 		/// adding new variants to `AggregateMessageOrigin`.
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Weight info for the calls of this pallet.
 		type WeightInfo: WeightInfo;
@@ -496,7 +501,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queue(para: ParaId) {
-		T::MessageQueue::sweep_queue(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
+		T::MessageQueue::sweep_queue(T::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para)));
 	}
 
 	/// Extract the freed cores based on cores that became available.
@@ -921,7 +926,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
-		let fp = T::MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)));
+		let fp = T::MessageQueue::footprint(T::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para_id)));
 		(fp.storage.count as u32, fp.storage.size as u32)
 	}
 
@@ -1009,7 +1014,7 @@ impl<T: Config> Pallet<T> {
 
 		T::MessageQueue::enqueue_messages(
 			messages.into_iter(),
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(para)),
+			T::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para)),
 		);
 		Self::deposit_event(Event::UpwardMessagesReceived { from: para, count });
 	}
@@ -1205,12 +1210,10 @@ impl AcceptanceCheckErr {
 	}
 }
 
-impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
+impl<T: Config> OnQueueChanged<T::AggregateMessageOrigin> for Pallet<T> {
 	// Write back the remaining queue capacity into `relay_dispatch_queue_remaining_capacity`.
-	fn on_queue_changed(origin: AggregateMessageOrigin, fp: QueueFootprint) {
-		let para = match origin {
-			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
-		};
+	fn on_queue_changed(origin: T::AggregateMessageOrigin, fp: QueueFootprint) {
+		let para = T::GetParaFromAggregateMessageOrigin::convert(origin);
 		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
 		let (count, size) = (count.saturated_into(), size.saturated_into());
 		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
@@ -1413,6 +1416,6 @@ impl<T: Config> QueueFootprinter for Pallet<T> {
 	type Origin = UmpQueueId;
 
 	fn message_count(origin: Self::Origin) -> u64 {
-		T::MessageQueue::footprint(AggregateMessageOrigin::Ump(origin)).storage.count
+		T::MessageQueue::footprint(T::GetAggregateMessageOrigin::convert(origin)).storage.count
 	}
 }

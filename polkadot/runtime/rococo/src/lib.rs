@@ -101,7 +101,7 @@ use sp_runtime::{
 	traits::{
 		AccountIdConversion, BlakeTwo256, Block as BlockT, ConstU32, ConvertInto,
 		Extrinsic as ExtrinsicT, IdentityLookup, Keccak256, OpaqueKeys, SaturatedConversion,
-		Verify,
+		Verify, Convert
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Perbill, Percent, Permill, RuntimeDebug,
@@ -958,10 +958,32 @@ impl polkadot_runtime_parachains::inclusion::RewardValidators for RewardValidato
 	fn reward_bitfields(_: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
+
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<UmpQueueId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(queue_id: UmpQueueId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Ump(queue_id)
+	}
+}
+
+pub struct GetParaFromAggregateMessageOrigin;
+
+impl Convert<AggregateMessageOrigin, ParaId> for GetParaFromAggregateMessageOrigin {
+	fn convert(x: AggregateMessageOrigin) -> ParaId {
+		match x {
+			AggregateMessageOrigin::Ump(UmpQueueId::Para(para_id)) => para_id,
+		}
+	}
+}
+
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
 	type RewardValidators = RewardValidators;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type GetParaFromAggregateMessageOrigin = GetParaFromAggregateMessageOrigin;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
