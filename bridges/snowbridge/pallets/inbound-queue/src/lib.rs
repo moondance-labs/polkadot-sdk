@@ -33,7 +33,7 @@ mod mock;
 
 #[cfg(test)]
 mod test;
-mod xcm_message_processor;
+pub mod xcm_message_processor;
 
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::Weight;
