@@ -18,7 +18,7 @@ exclude-from-umbrella = true
 codec = { features = ["derive"], workspace = true }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
-hex-literal = { workspace = true }
+hex-literal = { workspace = true, default-features = false }
 parity-bytes = { workspace = true }
 rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -28,7 +28,7 @@ sp-io.workspace = true
 sp-runtime.workspace = true
 sp-std.workspace = true
 
-ethabi = { workspace = true }
+ethabi = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
