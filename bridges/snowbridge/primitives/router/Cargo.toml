@@ -12,6 +12,8 @@ categories = ["cryptography::cryptocurrencies"]
 workspace = true
 
 [dependencies]
+alloy-primitives = { features = ["rlp"], workspace = true }
+alloy-sol-types = { workspace = true }
 codec = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }

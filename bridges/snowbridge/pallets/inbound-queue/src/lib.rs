@@ -23,8 +23,6 @@
 //!   parachain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod envelope;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -35,9 +33,9 @@ mod mock;
 
 #[cfg(test)]
 mod test;
+pub mod xcm_message_processor;
 
-use codec::{Decode, DecodeAll, Encode};
-use envelope::Envelope;
+use codec::{Decode, Encode};
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
@@ -48,7 +46,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
@@ -62,7 +60,7 @@ use snowbridge_core::{
 	StaticLookup,
 };
 use snowbridge_router_primitives::inbound::{
-	ConvertMessage, ConvertMessageError, VersionedMessage,
+	envelope::Envelope, ConvertMessage, ConvertMessageError, MessageProcessor, VersionedXcmMessage,
 };
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
@@ -84,7 +82,6 @@ pub mod pallet {
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_core::H256;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -139,6 +136,9 @@ pub mod pallet {
 
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
+
+		/// Process the message that was submitted
+		type MessageProcessor: MessageProcessor;
 	}
 
 	#[pallet::hooks]
@@ -205,10 +205,12 @@ pub mod pallet {
 				XcmpSendError::NotApplicable => Error::<T>::Send(SendError::NotApplicable),
 				XcmpSendError::Unroutable => Error::<T>::Send(SendError::NotRoutable),
 				XcmpSendError::Transport(_) => Error::<T>::Send(SendError::Transport),
-				XcmpSendError::DestinationUnsupported =>
-					Error::<T>::Send(SendError::DestinationUnsupported),
-				XcmpSendError::ExceedsMaxMessageSize =>
-					Error::<T>::Send(SendError::ExceedsMaxMessageSize),
+				XcmpSendError::DestinationUnsupported => {
+					Error::<T>::Send(SendError::DestinationUnsupported)
+				},
+				XcmpSendError::ExceedsMaxMessageSize => {
+					Error::<T>::Send(SendError::ExceedsMaxMessageSize)
+				},
 				XcmpSendError::MissingArgument => Error::<T>::Send(SendError::MissingArgument),
 				XcmpSendError::Fees => Error::<T>::Send(SendError::Fees),
 			}
@@ -251,7 +253,7 @@ pub mod pallet {
 			// Verify message nonce
 			<Nonce<T>>::try_mutate(envelope.channel_id, |nonce| -> DispatchResult {
 				if *nonce == u64::MAX {
-					return Err(Error::<T>::MaxNonceReached.into())
+					return Err(Error::<T>::MaxNonceReached.into());
 				}
 				if envelope.nonce != nonce.saturating_add(1) {
 					Err(Error::<T>::InvalidNonce.into())
@@ -275,34 +277,7 @@ pub mod pallet {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 
-			// Decode payload into `VersionedMessage`
-			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
-				.map_err(|_| Error::<T>::InvalidPayload)?;
-
-			// Decode message into XCM
-			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
-
-			log::info!(
-				target: LOG_TARGET,
-				"💫 xcm decoded as {:?} with fee {:?}",
-				xcm,
-				fee
-			);
-
-			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, fee)?;
-
-			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, channel.para_id)?;
-
-			Self::deposit_event(Event::MessageReceived {
-				channel_id: envelope.channel_id,
-				nonce: envelope.nonce,
-				message_id,
-				fee_burned: fee,
-			});
-
-			Ok(())
+			T::MessageProcessor::process_message(channel, envelope)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -322,7 +297,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn do_convert(
 			message_id: H256,
-			message: VersionedMessage,
+			message: VersionedXcmMessage,
 		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
 			let (xcm, fee) = T::MessageConverter::convert(message_id, message)
 				.map_err(|e| Error::<T>::ConvertMessage(e))?;

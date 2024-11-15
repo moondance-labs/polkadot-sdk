@@ -18,7 +18,7 @@ codec = { features = ["derive"], workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 ethbloom = { workspace = true }
 ethereum-types = { features = ["codec", "rlp", "serialize"], workspace = true }
-hex-literal = { workspace = true }
+hex-literal = { workspace = true, default-features = false }
 parity-bytes = { workspace = true }
 rlp = { workspace = true }
 
@@ -26,7 +26,7 @@ sp-io = { workspace = true }
 sp-std = { workspace = true }
 sp-runtime = { workspace = true }
 
-ethabi = { workspace = true }
+ethabi = { workspace = true, default-features = false }
 
 [dev-dependencies]
 wasm-bindgen-test = { workspace = true }
