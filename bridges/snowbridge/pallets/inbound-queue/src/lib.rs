@@ -139,6 +139,7 @@ pub mod pallet {
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
 
+		/// Process the message that was submitted
 		type MessageProcessor: MessageProcessor;
 	}
 
