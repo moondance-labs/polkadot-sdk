@@ -23,6 +23,10 @@ use snowbridge_inbound_queue_primitives::{
 	v1::{Command, Destination, MessageV1, VersionedMessage},
 	EventFixture,
 };
+use snowbridge_inbound_queue_primitives::{
+	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
+	EventProof, VerificationError, Verifier,
+};
 use snowbridge_outbound_queue_primitives::OperatingMode;
 use snowbridge_pallet_inbound_queue_fixtures::{
 	register_token::make_register_token_message, send_native_eth::make_send_native_eth_message,
@@ -325,13 +329,9 @@ fn send_weth_from_ethereum_to_penpal() {
 	let origin_location = (Parent, Parent, ethereum_network_v5).into();
 
 	// Fund ethereum sovereign on AssetHub
-	let ethereum_sovereign: AccountId = AssetHubRococo::execute_with(|| {
-		ExternalConsensusLocationsConverterFor::<
-			AssetHubRococoUniversalLocation,
-			AccountId,
-		>::convert_location(&origin_location)
-		.unwrap()
-	});
+	let ethereum_sovereign: AccountId =
+		GlobalConsensusEthereumConvertsFor::<AccountId>::convert_location(&origin_location)
+			.unwrap();
 	AssetHubRococo::fund_accounts(vec![(ethereum_sovereign.clone(), INITIAL_FUND)]);
 
 	// Create asset on the Penpal parachain.
@@ -704,7 +704,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
-		let message = VersionedMessage::V1(MessageV1 {
+		let message = VersionedXcmMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken {
 				token: WETH.into(),
@@ -770,7 +770,7 @@ fn send_weth_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u128
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
-		let message = VersionedMessage::V1(MessageV1 {
+		let message = VersionedXcmMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
 				token: WETH.into(),
