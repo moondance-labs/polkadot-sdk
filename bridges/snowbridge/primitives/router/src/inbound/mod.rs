@@ -4,17 +4,20 @@
 
 #[cfg(test)]
 mod tests;
+pub mod envelope;
 
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{traits::tokens::Balance as BalanceT, weights::Weight, PalletError};
 use scale_info::TypeInfo;
+use snowbridge_core::Channel;
 use sp_core::{Get, RuntimeDebug, H160};
 use sp_io::hashing::blake2_256;
-use sp_runtime::MultiAddress;
+use sp_runtime::{DispatchError, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
 use xcm_executor::traits::ConvertLocation;
+use crate::inbound::envelope::Envelope;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 
@@ -22,7 +25,7 @@ const MINIMUM_DEPOSIT: u128 = 1;
 /// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
 /// Instead having BridgeHub transcode the messages into XCM.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub enum VersionedMessage {
+pub enum VersionedXcmMessage {
 	V1(MessageV1),
 }
 
@@ -115,7 +118,7 @@ pub trait ConvertMessage {
 	type Balance: BalanceT + From<u128>;
 	type AccountId;
 	/// Converts a versioned message into an XCM message and an optional topicID
-	fn convert(message: VersionedMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
+	fn convert(message: VersionedXcmMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
 }
 
 pub type CallIndex = [u8; 2];
@@ -138,9 +141,9 @@ impl<CreateAssetCall, CreateAssetDeposit, InboundQueuePalletInstance, AccountId,
 	type Balance = Balance;
 	type AccountId = AccountId;
 
-	fn convert(message: VersionedMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
+	fn convert(message: VersionedXcmMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
 		use Command::*;
-		use VersionedMessage::*;
+		use VersionedXcmMessage::*;
 		match message {
 			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
 				Ok(Self::convert_register_token(chain_id, token, fee)),
@@ -310,5 +313,43 @@ where
 impl<AccountId> GlobalConsensusEthereumConvertsFor<AccountId> {
 	pub fn from_chain_id(chain_id: &u64) -> [u8; 32] {
 		(b"ethereum-chain", chain_id).using_encoded(blake2_256)
+	}
+}
+
+
+pub trait MessageProcessor {
+	/// Lightweight function to check if this processor can handle the message
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool;
+	/// Process the message
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError>;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+impl MessageProcessor for Tuple {
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool {
+		for_tuples!( #(
+ 			match Tuple::can_process_message(&channel, &envelope) {
+				true => {
+					return true;
+				},
+				_ => {}
+			}
+		)* );
+
+		false
+	}
+
+
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError> {
+		for_tuples!( #(
+ 			match Tuple::can_process_message(&channel, &envelope) {
+				true => {
+					return Tuple::process_message(channel, envelope)
+				},
+				_ => {}
+			}
+		)* );
+
+		Err(DispatchError::Other("No handler for message found"))
 	}
 }
