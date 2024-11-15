@@ -25,7 +25,7 @@ use snowbridge_pallet_inbound_queue_fixtures::{
 };
 use snowbridge_pallet_system;
 use snowbridge_router_primitives::inbound::{
-	Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedMessage,
+    Command, Destination, GlobalConsensusEthereumConvertsFor, MessageV1, VersionedXcmMessage,
 };
 use sp_core::H256;
 use sp_runtime::{DispatchError::Token, TokenError::FundsUnavailable};
@@ -532,7 +532,7 @@ fn register_weth_token_in_asset_hub_fail_for_insufficient_fee() {
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
-		let message = VersionedMessage::V1(MessageV1 {
+		let message = VersionedXcmMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::RegisterToken {
 				token: WETH.into(),
@@ -599,7 +599,7 @@ fn send_token_from_ethereum_to_asset_hub_with_fee(account_id: [u8; 32], fee: u12
 		type EthereumInboundQueue =
 			<BridgeHubRococo as BridgeHubRococoPallet>::EthereumInboundQueue;
 		let message_id: H256 = [0; 32].into();
-		let message = VersionedMessage::V1(MessageV1 {
+		let message = VersionedXcmMessage::V1(MessageV1 {
 			chain_id: CHAIN_ID,
 			command: Command::SendToken {
 				token: WETH.into(),

@@ -19733,8 +19733,11 @@ dependencies = [
 name = "snowbridge-router-primitives"
 version = "0.16.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "frame-support",
  "hex-literal",
+ "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
  "scale-info",
