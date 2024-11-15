@@ -1,7 +1,6 @@
 use crate::{Error, Event, LOG_TARGET};
 use codec::DecodeAll;
 use core::marker::PhantomData;
-use frame_support::pallet_prelude::Weight;
 use snowbridge_core::Channel;
 use snowbridge_router_primitives::inbound::envelope::Envelope;
 use snowbridge_router_primitives::inbound::{MessageProcessor, VersionedXcmMessage};

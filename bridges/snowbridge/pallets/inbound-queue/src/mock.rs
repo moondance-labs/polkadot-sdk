@@ -208,7 +208,7 @@ impl TransactAsset for SuccessfulTransactor {
 pub struct DummyPrefix;
 
 impl MessageProcessor for DummyPrefix {
-	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool {
+	fn can_process_message(_channel: &Channel, _envelope: &Envelope) -> bool {
 		false
 	}
 

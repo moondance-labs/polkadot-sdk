@@ -36,7 +36,6 @@ mod test;
 pub mod xcm_message_processor;
 
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::Weight;
 use frame_support::{
 	traits::{
 		fungible::{Inspect, Mutate},
