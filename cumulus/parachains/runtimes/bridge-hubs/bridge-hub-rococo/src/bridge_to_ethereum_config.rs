@@ -28,8 +28,6 @@ use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
 use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
 
 use crate::xcm_config::RelayNetwork;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
 use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{parameter_types, weights::ConstantMultiplier};
@@ -80,7 +78,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type ChannelLookup = EthereumSystem;
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -101,6 +99,8 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type MessageProcessor =
+		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
 }
 
 pub struct GetAggregateMessageOrigin;

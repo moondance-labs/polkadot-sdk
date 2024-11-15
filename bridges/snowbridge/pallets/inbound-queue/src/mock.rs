@@ -14,7 +14,7 @@ use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, Verifica
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, Verify},
-	BuildStorage, FixedU128, MultiSignature,
+	BuildStorage, DispatchError, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{
@@ -28,7 +28,7 @@ use snowbridge_inbound_queue_primitives::EventFixture;
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
-use crate::{self as inbound_queue};
+use crate::{self as inbound_queue, xcm_message_processor::XcmMessageProcessor};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -230,6 +230,30 @@ impl MaybeConvert<TokenId, Location> for MockTokenIdConvert {
 	}
 }
 
+pub struct DummyPrefix;
+
+impl MessageProcessor for DummyPrefix {
+	fn can_process_message(_channel: &Channel, _envelope: &Envelope) -> bool {
+		false
+	}
+
+	fn process_message(_channel: Channel, _envelope: Envelope) -> Result<(), DispatchError> {
+		panic!("DummyPrefix::process_message shouldn't be called");
+	}
+}
+
+pub struct DummySuffix;
+
+impl MessageProcessor for DummySuffix {
+	fn can_process_message(_channel: &Channel, _envelope: &Envelope) -> bool {
+		true
+	}
+
+	fn process_message(_channel: Channel, _envelope: Envelope) -> Result<(), DispatchError> {
+		panic!("DummySuffix::process_message shouldn't be called");
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -255,6 +279,8 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
+	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for
+																				// tuple
 }
 
 pub fn setup() {

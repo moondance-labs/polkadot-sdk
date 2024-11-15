@@ -643,6 +643,10 @@ alloy-core = { version = "1.2.1", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
+# TODO: remove alloy-primitives and alloy-sol-types, they are re-exported in alloy-core
+# but the version is different so it doesnt compile
+alloy-primitives-042 = { package = "alloy-primitives",  version = "0.4.2", default-features = false }
+alloy-sol-types = { version = "0.4.2", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
 approx = { version = "0.5.1" }
