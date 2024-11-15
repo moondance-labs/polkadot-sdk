@@ -13,14 +13,11 @@ impl<T> MessageProcessor for XcmMessageProcessor<T>
 where
 	T: crate::Config,
 {
-	fn can_process_message(_channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
-		match VersionedXcmMessage::decode_all(&mut envelope.payload.as_ref()) {
-			Ok(_) => (true, Weight::zero()),
-			Err(_) => (false, Weight::zero()),
-		}
+	fn can_process_message(_channel: &Channel, envelope: &Envelope) -> bool {
+		VersionedXcmMessage::decode_all(&mut envelope.payload.as_ref()).is_ok()
 	}
 
-	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError> {
 		// Decode message into XCM
 		let (xcm, fee) = match VersionedXcmMessage::decode_all(&mut envelope.payload.as_ref()) {
 			Ok(message) => crate::Pallet::<T>::do_convert(envelope.message_id, message)?,
@@ -47,6 +44,6 @@ where
 			fee_burned: fee,
 		});
 
-		Ok(Weight::zero())
+		Ok(())
 	}
 }

@@ -208,11 +208,11 @@ impl TransactAsset for SuccessfulTransactor {
 pub struct DummyPrefix;
 
 impl MessageProcessor for DummyPrefix {
-	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
-		(false, Weight::zero())
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool {
+		false
 	}
 
-	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
+	fn process_message(_channel: Channel, _envelope: Envelope) -> Result<(), DispatchError> {
 		panic!("DummyPrefix::process_message shouldn't be called");
 	}
 }
@@ -220,11 +220,11 @@ impl MessageProcessor for DummyPrefix {
 pub struct DummySuffix;
 
 impl MessageProcessor for DummySuffix {
-	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
-		(true, Weight::zero())
+	fn can_process_message(_channel: &Channel, _envelope: &Envelope) -> bool {
+		true
 	}
 
-	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
+	fn process_message(_channel: Channel, _envelope: Envelope) -> Result<(), DispatchError> {
 		panic!("DummySuffix::process_message shouldn't be called");
 	}
 }

@@ -319,46 +319,34 @@ impl<AccountId> GlobalConsensusEthereumConvertsFor<AccountId> {
 
 pub trait MessageProcessor {
 	/// Lightweight function to check if this processor can handle the message
-	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight);
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool;
 	/// Process the message
-	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError>;
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 impl MessageProcessor for Tuple {
-	fn can_process_message(channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
-		let mut total_weight = Weight::zero();
-
+	fn can_process_message(channel: &Channel, envelope: &Envelope) -> bool {
 		for_tuples!( #(
  			match Tuple::can_process_message(&channel, &envelope) {
-				(true, weight) => {
-					total_weight += weight;
-					return (true, total_weight);
-
+				true => {
+					return true;
 				},
-				(false, weight) => {
-					total_weight += weight;
-				}
+				_ => {}
 			}
 		)* );
 
-		(false, total_weight)
+		false
 	}
 
 
-	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
-		let mut total_weight = Weight::zero();
-
+	fn process_message(channel: Channel, envelope: Envelope) -> Result<(), DispatchError> {
 		for_tuples!( #(
  			match Tuple::can_process_message(&channel, &envelope) {
-				(true, weight) => {
-					total_weight += weight;
-					return Tuple::process_message(channel, envelope).map(|weight| total_weight+weight)
-
+				true => {
+					return Tuple::process_message(channel, envelope)
 				},
-				(false, weight) => {
-					total_weight += weight;
-				}
+				_ => {}
 			}
 		)* );
 

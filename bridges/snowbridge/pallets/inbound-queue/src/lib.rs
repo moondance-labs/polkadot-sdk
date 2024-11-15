@@ -279,7 +279,7 @@ pub mod pallet {
 				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
 			}
 
-			T::MessageProcessor::process_message(channel, envelope).map(|_weight| ())
+			T::MessageProcessor::process_message(channel, envelope)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
