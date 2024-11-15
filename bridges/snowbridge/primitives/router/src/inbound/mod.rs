@@ -25,7 +25,7 @@ const MINIMUM_DEPOSIT: u128 = 1;
 /// we may want to evolve the protocol so that the ethereum side sends XCM messages directly.
 /// Instead having BridgeHub transcode the messages into XCM.
 #[derive(Clone, Encode, Decode, RuntimeDebug)]
-pub enum VersionedXCMMessage {
+pub enum VersionedXcmMessage {
 	V1(MessageV1),
 }
 
@@ -118,7 +118,7 @@ pub trait ConvertMessage {
 	type Balance: BalanceT + From<u128>;
 	type AccountId;
 	/// Converts a versioned message into an XCM message and an optional topicID
-	fn convert(message: VersionedXCMMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
+	fn convert(message: VersionedXcmMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError>;
 }
 
 pub type CallIndex = [u8; 2];
@@ -141,9 +141,9 @@ impl<CreateAssetCall, CreateAssetDeposit, InboundQueuePalletInstance, AccountId,
 	type Balance = Balance;
 	type AccountId = AccountId;
 
-	fn convert(message: VersionedXCMMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
+	fn convert(message: VersionedXcmMessage) -> Result<(Xcm<()>, Self::Balance), ConvertMessageError> {
 		use Command::*;
-		use VersionedXCMMessage::*;
+		use VersionedXcmMessage::*;
 		match message {
 			V1(MessageV1 { chain_id, command: RegisterToken { token, fee } }) =>
 				Ok(Self::convert_register_token(chain_id, token, fee)),

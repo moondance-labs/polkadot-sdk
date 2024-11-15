@@ -4,17 +4,17 @@ use core::marker::PhantomData;
 use frame_support::pallet_prelude::Weight;
 use snowbridge_core::Channel;
 use snowbridge_router_primitives::inbound::envelope::Envelope;
-use snowbridge_router_primitives::inbound::{MessageProcessor, VersionedXCMMessage};
+use snowbridge_router_primitives::inbound::{MessageProcessor, VersionedXcmMessage};
 use sp_runtime::DispatchError;
 
-pub struct XCMMessageProcessor<T>(PhantomData<T>);
+pub struct XcmMessageProcessor<T>(PhantomData<T>);
 
-impl<T> MessageProcessor for XCMMessageProcessor<T>
+impl<T> MessageProcessor for XcmMessageProcessor<T>
 where
 	T: crate::Config,
 {
 	fn can_process_message(_channel: &Channel, envelope: &Envelope) -> (bool, Weight) {
-		match VersionedXCMMessage::decode_all(&mut envelope.payload.as_ref()) {
+		match VersionedXcmMessage::decode_all(&mut envelope.payload.as_ref()) {
 			Ok(_) => (true, Weight::zero()),
 			Err(_) => (false, Weight::zero()),
 		}
@@ -22,7 +22,7 @@ where
 
 	fn process_message(channel: Channel, envelope: Envelope) -> Result<Weight, DispatchError> {
 		// Decode message into XCM
-		let (xcm, fee) = match VersionedXCMMessage::decode_all(&mut envelope.payload.as_ref()) {
+		let (xcm, fee) = match VersionedXcmMessage::decode_all(&mut envelope.payload.as_ref()) {
 			Ok(message) => crate::Pallet::<T>::do_convert(envelope.message_id, message)?,
 			Err(_) => return Err(Error::<T>::InvalidPayload.into()),
 		};

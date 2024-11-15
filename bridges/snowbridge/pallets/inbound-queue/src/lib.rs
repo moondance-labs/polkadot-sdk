@@ -62,7 +62,7 @@ use snowbridge_core::{
 	StaticLookup,
 };
 use snowbridge_router_primitives::inbound::{
-	envelope::Envelope, ConvertMessage, ConvertMessageError, MessageProcessor, VersionedXCMMessage,
+	envelope::Envelope, ConvertMessage, ConvertMessageError, MessageProcessor, VersionedXcmMessage,
 };
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
@@ -298,7 +298,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn do_convert(
 			message_id: H256,
-			message: VersionedXCMMessage,
+			message: VersionedXcmMessage,
 		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
 			let (mut xcm, fee) =
 				T::MessageConverter::convert(message).map_err(|e| Error::<T>::ConvertMessage(e))?;

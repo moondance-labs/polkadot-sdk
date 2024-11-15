@@ -22,7 +22,7 @@ use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
 use xcm_executor::AssetsInHolding;
 
-use crate::xcm_message_processor::XCMMessageProcessor;
+use crate::xcm_message_processor::XcmMessageProcessor;
 use crate::{self as inbound_queue};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -251,7 +251,7 @@ impl inbound_queue::Config for Test {
 	type LengthToFee = IdentityFee<u128>;
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
-	type MessageProcessor = (DummyPrefix, XCMMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for tuple
+	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for tuple
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
