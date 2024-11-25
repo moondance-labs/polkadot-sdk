@@ -67,7 +67,7 @@ impl<Block: BlockT, RuntimeApi>
 	BuildRpcExtensions<
 		ParachainClient<Block, RuntimeApi>,
 		ParachainBackend<Block>,
-		sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi>>,
+		sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
 	> for BuildParachainRpcExtensions<Block, RuntimeApi>
 where
 	RuntimeApi:
@@ -78,7 +78,9 @@ where
 	fn build_rpc_extensions(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
 		backend: Arc<ParachainBackend<Block>>,
-		pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
+		pool: Arc<
+			sc_transaction_pool::TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+		>,
 	) -> sc_service::error::Result<RpcExtension> {
 		let build = || -> Result<RpcExtension, Box<dyn std::error::Error + Send + Sync>> {
 			let mut module = RpcExtension::new(());

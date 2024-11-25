@@ -39,7 +39,8 @@ use sc_network::{config::FullNetworkConfiguration, NetworkBackend, NetworkBlock}
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_sysinfo::HwBench;
 use sc_telemetry::{TelemetryHandle, TelemetryWorker};
-use sc_transaction_pool::FullPool;
+use sc_tracing::tracing::Instrument;
+use sc_transaction_pool::TransactionPoolHandle;
 use sp_keystore::KeystorePtr;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
@@ -64,7 +65,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<FullPool<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -91,7 +92,7 @@ fn warn_if_slow_hardware(hwbench: &sc_sysinfo::HwBench) {
 	}
 }
 
-pub(crate) trait NodeSpec {
+pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
 	type RuntimeApi: ConstructNodeRuntimeApi<
@@ -104,7 +105,7 @@ pub(crate) trait NodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
 		ParachainClient<Self::Block, Self::RuntimeApi>,
 		ParachainBackend<Self::Block>,
-		FullPool<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+        TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
 	>;
 
 	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
@@ -158,12 +159,15 @@ pub(crate) trait NodeSpec {
 			telemetry
 		});
 
-		let transaction_pool = sc_transaction_pool::BasicPool::new_full(
-			config.transaction_pool.clone(),
-			config.role.is_authority().into(),
-			config.prometheus_registry(),
-			task_manager.spawn_essential_handle(),
-			client.clone(),
+		let transaction_pool = Arc::from(
+			sc_transaction_pool::Builder::new(
+				task_manager.spawn_essential_handle(),
+				client.clone(),
+				config.role.is_authority().into(),
+			)
+			.with_options(config.transaction_pool.clone())
+			.with_prometheus(config.prometheus_registry())
+			.build(),
 		);
 
 		let block_import = ParachainBlockImport::new(client.clone(), backend.clone());
@@ -187,6 +191,18 @@ pub(crate) trait NodeSpec {
 			other: (block_import, telemetry, telemetry_worker_handle),
 		})
 	}
+}
+
+pub(crate) trait NodeSpec: BaseNodeSpec {
+	type BuildRpcExtensions: BuildRpcExtensions<
+		ParachainClient<Self::Block, Self::RuntimeApi>,
+		ParachainBackend<Self::Block>,
+		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+	>;
+
+	type StartConsensus: StartConsensus<Self::Block, Self::RuntimeApi>;
+
+	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
 	/// Start a node with the given parachain spec.
 	///
