@@ -122,7 +122,7 @@ use sp_runtime::{
 	DigestItem, Saturating,
 };
 use sp_std::prelude::*;
-pub use types::{CommittedMessage, ProcessMessageOriginOf};
+pub use types::{CommittedMessage, ProcessMessageOriginOf, OnNewCommitment};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -169,6 +169,8 @@ pub mod pallet {
 		type Channels: Contains<ChannelId>;
 
 		type PricingParameters: Get<PricingParameters<Self::Balance>>;
+
+		type OnNewCommitment: OnNewCommitment;
 
 		/// Convert a weight value into a deductible fee based.
 		type WeightToFee: WeightToFee<Balance = Self::Balance>;
@@ -290,6 +292,8 @@ pub mod pallet {
 
 			// Create merkle root of messages
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
+
+			T::OnNewCommitment::on_new_commitment(root);
 
 			let digest_item: DigestItem = CustomDigestItem::Snowbridge(root).into();
 
