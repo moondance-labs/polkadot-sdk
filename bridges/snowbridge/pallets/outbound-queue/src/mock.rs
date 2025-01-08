@@ -102,6 +102,7 @@ impl crate::Config for Test {
 	type AggregateMessageOrigin = AggregateMessageOrigin;
 	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 	type WeightToFee = IdentityFee<u128>;
+	type OnNewCommitment = ();
 	type WeightInfo = ();
 }
 
