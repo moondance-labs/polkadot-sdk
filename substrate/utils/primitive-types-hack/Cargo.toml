@@ -1,0 +1,16 @@
+[package]
+name = "primitive-types-hack"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+primitive-types-a = { package = "primitive-types", version = "0.12.2", default-features = false }
+primitive-types-b = { package = "primitive-types", version = "0.13.1", default-features = false }
+
+[lints]
+workspace = true
+

@@ -16987,6 +16987,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "primitive-types-hack"
+version = "0.1.0"
+dependencies = [
+ "primitive-types 0.12.2",
+ "primitive-types 0.13.1",
+]
+
+[[package]]
 name = "prioritized-metered-channel"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21443,6 +21451,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-parachain-primitives",
+ "primitive-types-hack",
  "scale-info",
  "serde",
  "sp-arithmetic 26.1.0",

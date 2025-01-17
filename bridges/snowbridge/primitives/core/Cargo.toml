@@ -33,6 +33,7 @@ sp-std.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm.workspace = true
+primitive-types-hack = { workspace = true, default-features = false }
 
 [features]
 default = ["std"]
