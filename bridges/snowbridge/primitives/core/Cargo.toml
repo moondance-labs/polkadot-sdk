@@ -32,6 +32,7 @@ sp-arithmetic = { workspace = true }
 snowbridge-beacon-primitives = { workspace = true }
 
 ethabi = { workspace = true }
+primitive-types-hack = { workspace = true, default-features = false }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }
