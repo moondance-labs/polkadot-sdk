@@ -1,3 +1,5 @@
+#![no_std]
+
 use primitive_types_a::U256 as OldU256;
 use primitive_types_b::U256 as NewU256;
 use primitive_types_a::H160 as OldH160;
