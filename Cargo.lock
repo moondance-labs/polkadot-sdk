@@ -27958,6 +27958,8 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-parachains",
  "sp-arithmetic 26.1.0",
+ "sp-consensus-aura",
+ "sp-consensus-slots",
  "sp-core 36.1.0",
  "sp-crypto-hashing 0.1.0",
  "sp-io 40.0.1",
