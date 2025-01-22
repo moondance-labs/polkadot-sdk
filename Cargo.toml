@@ -1098,7 +1098,7 @@ pretty_assertions = { version = "1.3.0" }
 primitive-types = { version = "0.13.1", default-features = false, features = [
 	"num-traits",
 ] }
-primitive-types-hack = { path = "substrate/utils/primitive-types-hack" }
+primitive-types-hack = { path = "substrate/utils/primitive-types-hack", default-features = false }
 proc-macro-crate = { version = "3.0.0" }
 proc-macro-warning = { version = "1.0.0", default-features = false }
 proc-macro2 = { version = "1.0.86" }
