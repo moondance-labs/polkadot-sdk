@@ -203,6 +203,7 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type InboundDeliveryCost = EthereumInboundQueue;
 	type UniversalLocation = UniversalLocation;
 	type EthereumLocation = EthereumLocation;
+	type TokenIdFromLocation = snowbridge_core::TokenIdOf;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
