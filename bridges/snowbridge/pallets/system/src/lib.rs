@@ -70,7 +70,7 @@ use snowbridge_core::{
 	meth,
 	outbound::{Command, Initializer, Message, OperatingMode, SendError, SendMessage},
 	sibling_sovereign_account, AgentId, AssetMetadata, Channel, ChannelId, ParaId,
-	PricingParameters as PricingParametersRecord, TokenId, TokenIdOf, PRIMARY_GOVERNANCE_CHANNEL,
+	PricingParameters as PricingParametersRecord, TokenId, PRIMARY_GOVERNANCE_CHANNEL,
 	SECONDARY_GOVERNANCE_CHANNEL,
 };
 use sp_core::{RuntimeDebug, H160, H256};
@@ -179,6 +179,9 @@ pub mod pallet {
 
 		// The bridges configured Ethereum location
 		type EthereumLocation: Get<Location>;
+
+		// How to transform a location into token-id
+		type TokenIdFromLocation: ConvertLocation<TokenId>;
 
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
@@ -737,7 +740,7 @@ pub mod pallet {
 				.reanchored(&ethereum_location, &T::UniversalLocation::get())
 				.map_err(|_| Error::<T>::LocationConversionFailed)?;
 
-			let token_id = TokenIdOf::convert_location(&location)
+			let token_id = T::TokenIdFromLocation::convert_location(&location)
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 
 			if !ForeignToNativeId::<T>::contains_key(token_id) {

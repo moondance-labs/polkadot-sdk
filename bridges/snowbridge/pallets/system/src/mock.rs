@@ -10,12 +10,13 @@ use frame_support::{
 use sp_core::H256;
 use xcm_executor::traits::ConvertLocation;
 
+use bridge_hub_common::AggregateMessageOrigin;
 use snowbridge_core::{
 	gwei, meth, outbound::ConstantGasMeter, sibling_sovereign_account, AgentId, AllowSiblingsOnly,
 	ParaId, PricingParameters, Rewards,
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup, Keccak256},
+	traits::{AccountIdConversion, BlakeTwo256, Convert, IdentityLookup, Keccak256},
 	AccountId32, BuildStorage, FixedU128,
 };
 use xcm::prelude::*;
@@ -148,6 +149,14 @@ parameter_types! {
 	pub const OwnParaId: ParaId = ParaId::new(1013);
 }
 
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<snowbridge_core::ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: snowbridge_core::ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
+}
+
 impl snowbridge_pallet_outbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Hashing = Keccak256;
@@ -161,6 +170,8 @@ impl snowbridge_pallet_outbound_queue::Config for Test {
 	type Channels = EthereumSystem;
 	type WeightToFee = IdentityFee<u128>;
 	type OnNewCommitment = ();
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
 	type WeightInfo = ();
 }
 
@@ -212,6 +223,7 @@ impl crate::Config for Test {
 	type InboundDeliveryCost = InboundDeliveryCost;
 	type UniversalLocation = UniversalLocation;
 	type EthereumLocation = EthereumDestination;
+	type TokenIdFromLocation = snowbridge_core::TokenIdOf;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
 }
