@@ -39,6 +39,7 @@ sp-keyring = { default-features = true, path = "../../../../substrate/primitives
 polkadot-primitives = { default-features = true, path = "../../../../polkadot/primitives" }
 pallet-message-queue = { default-features = true, path = "../../../../substrate/frame/message-queue" }
 snowbridge-pallet-outbound-queue = { default-features = true, path = "../outbound-queue" }
+bridge-hub-common.workspace = true
 
 [features]
 default = ["std"]
