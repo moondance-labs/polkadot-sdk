@@ -1537,7 +1537,6 @@ overflow-checks = true
 #
 # This list is ordered alphabetically.
 [profile.dev.package]
-ark-vrf = { opt-level = 3 }
 blake2 = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }
