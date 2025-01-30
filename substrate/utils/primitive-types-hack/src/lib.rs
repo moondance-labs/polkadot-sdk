@@ -13,37 +13,37 @@ pub trait FromHack<T> {
 
 impl FromHack<NewU256> for OldU256 {
     fn from(x: NewU256) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
 impl FromHack<OldU256> for NewU256 {
     fn from(x: OldU256) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
 impl FromHack<NewH256> for OldH256 {
     fn from(x: NewH256) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
 impl FromHack<OldH256> for NewH256 {
     fn from(x: OldH256) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
 impl FromHack<NewH160> for OldH160 {
     fn from(x: NewH160) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
 impl FromHack<OldH160> for NewH160 {
     fn from(x: OldH160) -> Self {
-        todo!()
+        Self(x.0)
     }
 }
 
