@@ -17,9 +17,10 @@ use crate::mock::*;
 fn test_submit_happy_path() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
-		let channel_sovereign = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
-
 		let origin = RuntimeOrigin::signed(relayer.clone());
+
+		// Add funds to reward relayers
+		let _ = Balances::mint_into(&AccountId::from(Keyring::Alice), 1e20 as u128);
 
 		// Submit message
 		let message = Message {
@@ -30,9 +31,7 @@ fn test_submit_happy_path() {
 			},
 		};
 
-		let initial_fund = InitialFund::get();
 		assert_eq!(Balances::balance(&relayer), 0);
-		assert_eq!(Balances::balance(&channel_sovereign), initial_fund);
 
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
 		expect_events(vec![InboundQueueEvent::MessageReceived {
@@ -54,10 +53,6 @@ fn test_submit_happy_path() {
 		);
 
 		assert_eq!(Balances::balance(&relayer), delivery_cost, "relayer was rewarded");
-		assert!(
-			Balances::balance(&channel_sovereign) <= initial_fund - delivery_cost,
-			"sovereign account paid reward"
-		);
 	});
 }
 
@@ -66,11 +61,6 @@ fn test_submit_xcm_invalid_channel() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-
-		// Deposit funds into sovereign account of parachain 1001
-		let sovereign_account = sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into());
-		println!("account: {}", sovereign_account);
-		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit message
 		let message = Message {
@@ -93,10 +83,6 @@ fn test_submit_with_invalid_gateway() {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
 
-		// Deposit funds into sovereign account of Asset Hub (Statemint)
-		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
-		let _ = Balances::mint_into(&sovereign_account, 10000);
-
 		// Submit message
 		let message = Message {
 			event_log: mock_event_log_invalid_gateway(),
@@ -117,10 +103,6 @@ fn test_submit_with_invalid_nonce() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-
-		// Deposit funds into sovereign account of Asset Hub (Statemint)
-		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
-		let _ = Balances::mint_into(&sovereign_account, 10000);
 
 		// Submit message
 		let message = Message {
@@ -150,10 +132,6 @@ fn test_submit_no_funds_to_reward_relayers_just_ignore() {
 	new_tester().execute_with(|| {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
-
-		// Reset balance of sovereign_account to zero first
-		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
-		Balances::set_balance(&sovereign_account, 0);
 
 		// Submit message
 		let message = Message {
@@ -209,10 +187,6 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 		let relayer: AccountId = Keyring::Bob.into();
 		let origin = RuntimeOrigin::signed(relayer);
 
-		// Reset balance of sovereign account to (ED+1) first
-		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
-		Balances::set_balance(&sovereign_account, ExistentialDeposit::get() + 1);
-
 		// Submit message successfully
 		let message = Message {
 			event_log: mock_event_log(),
@@ -222,10 +196,6 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 			},
 		};
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-
-		// Check balance of sovereign account to ED
-		let amount = Balances::balance(&sovereign_account);
-		assert_eq!(amount, ExistentialDeposit::get());
 
 		// Submit another message with nonce set as 2
 		let mut event_log = mock_event_log();
@@ -238,8 +208,5 @@ fn test_submit_no_funds_to_reward_relayers_and_ed_preserved() {
 			},
 		};
 		assert_ok!(InboundQueue::submit(origin.clone(), message.clone()));
-		// Check balance of sovereign account as ED does not change
-		let amount = Balances::balance(&sovereign_account);
-		assert_eq!(amount, ExistentialDeposit::get());
 	});
 }
