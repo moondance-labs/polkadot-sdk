@@ -2,7 +2,19 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
+use crate::{
+	xcm_message_processor::XcmMessageProcessor,
+	{self as inbound_queue},
+};
+use frame_support::{
+	derive_impl, parameter_types,
+	storage::Key,
+	traits::{
+		tokens::{Fortitude, Preservation},
+		ConstU32,
+	},
+	weights::IdentityFee,
+};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, Fork, ForkVersions, VersionedExecutionPayloadHeader,
@@ -11,9 +23,10 @@ use snowbridge_core::{
 	gwei, meth, Channel, ChannelId, PricingParameters, Rewards, StaticLookup, TokenId,
 };
 use snowbridge_inbound_queue_primitives::{v1::MessageToXcm, Log, Proof, VerificationError};
-use sp_core::{H160, H256};
+use sp_core::{Get, H160, H256};
+use sp_keyring::AccountKeyring as Keyring;
 use sp_runtime::{
-	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, MaybeEquivalence, Verify},
+	traits::{IdentifyAccount, IdentityLookup, MaybeConvert, MaybeEquivalence, Verify, Zero},
 	BuildStorage, DispatchError, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
@@ -22,11 +35,6 @@ use xcm::{
 	prelude::*,
 };
 use xcm_executor::AssetsInHolding;
-
-use crate::{
-	xcm_message_processor::XcmMessageProcessor,
-	{self as inbound_queue},
-};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -247,6 +255,38 @@ impl MessageProcessor for DummySuffix {
 	}
 }
 
+pub struct DeliveryCostReward<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: inbound_queue::Config> RewardProcessor<T> for DeliveryCostReward<T>
+where
+	T: inbound_queue::Config,
+	T::AccountId: From<sp_runtime::AccountId32>,
+{
+	fn process_reward(who: T::AccountId, message: Message) -> DispatchResult {
+		let length = message.encode().len() as u32;
+		let weight_fee = T::WeightToFee::weight_to_fee(&T::WeightInfo::submit());
+		let len_fee = T::LengthToFee::weight_to_fee(&Weight::from_parts(length as u64, 0));
+		let delivery_cost = weight_fee
+			.saturating_add(len_fee)
+			.saturating_add(T::PricingParameters::get().rewards.local);
+
+		let sovereign_account: T::AccountId =
+			sp_runtime::AccountId32::from(Keyring::Alice.public()).into();
+
+		let amount = T::Token::reducible_balance(
+			&sovereign_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.min(delivery_cost);
+		if !amount.is_zero() {
+			T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+		}
+
+		Ok(())
+	}
+}
+
 impl inbound_queue::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
@@ -274,20 +314,11 @@ impl inbound_queue::Config for Test {
 	type AssetTransactor = SuccessfulTransactor;
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for
 																				// tuple
+	type RewardProcessor = DeliveryCostReward<Test>;
 }
 
 pub fn setup() {
 	System::set_block_number(1);
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
-	Balances::mint_into(
-		&sibling_sovereign_account::<Test>(TEMPLATE_PARAID.into()),
-		InitialFund::get(),
-	)
-	.unwrap();
 }
 
 pub fn new_tester() -> sp_io::TestExternalities {
@@ -374,4 +405,3 @@ pub fn mock_execution_proof() -> ExecutionProof {
 }
 
 pub const ASSET_HUB_PARAID: u32 = 1000u32;
-pub const TEMPLATE_PARAID: u32 = 1001u32;
