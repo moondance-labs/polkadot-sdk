@@ -36,6 +36,8 @@ mod test;
 pub mod xcm_message_processor;
 
 use codec::{Decode, Encode};
+use frame_support::traits::tokens::Fortitude;
+use frame_support::traits::tokens::Preservation;
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::fungible::{Inspect, Mutate},
@@ -45,6 +47,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
+use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
@@ -53,7 +56,8 @@ use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
 	inbound::{Message, VerificationError, Verifier},
-	BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters, StaticLookup,
+	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
+	StaticLookup,
 };
 use snowbridge_router_primitives::inbound::{
 	envelope::Envelope, ConvertMessage, ConvertMessageError, MessageProcessor, VersionedXcmMessage,
@@ -82,6 +86,32 @@ impl<T: frame_system::Config> RewardProcessor<T> for () {
 	}
 }
 
+pub struct DeliveryCostReward<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: pallet::Config> RewardProcessor<T> for DeliveryCostReward<T> {
+	fn process_reward(who: T::AccountId, message: Message) -> DispatchResult {
+		let length = message.encode().len() as u32;
+		let delivery_cost = pallet::Pallet::<T>::calculate_delivery_cost(length);
+
+		let envelope =
+			Envelope::try_from(&message.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
+		let channel =
+			T::ChannelLookup::lookup(envelope.channel_id).ok_or(Error::<T>::InvalidChannel)?;
+		let sovereign_account: T::AccountId = sibling_sovereign_account::<T>(channel.para_id);
+
+		let amount = T::Token::reducible_balance(
+			&sovereign_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.min(delivery_cost);
+		if !amount.is_zero() {
+			T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+		}
+
+		Ok(())
+	}
+}
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;

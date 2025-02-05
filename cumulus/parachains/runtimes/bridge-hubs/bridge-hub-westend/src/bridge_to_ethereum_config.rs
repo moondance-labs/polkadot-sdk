@@ -103,7 +103,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageProcessor =
 		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
-	type RewardProcessor = ();
+	type RewardProcessor = DeliveryCostReward<Self>;
 }
 
 pub struct GetAggregateMessageOrigin;
