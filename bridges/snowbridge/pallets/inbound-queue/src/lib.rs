@@ -37,17 +37,14 @@ pub mod xcm_message_processor;
 
 use codec::{Decode, Encode};
 use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
-	},
+	pallet_prelude::DispatchResult,
+	traits::fungible::{Inspect, Mutate},
 	weights::WeightToFee,
 	PalletError,
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
-use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
 	send_xcm, Junction::*, Location, SendError as XcmpSendError, SendXcm, Xcm, XcmContext, XcmHash,
@@ -55,8 +52,7 @@ use xcm::prelude::{
 use xcm_executor::traits::TransactAsset;
 
 use snowbridge_core::{
-	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
-	StaticLookup,
+	BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters, StaticLookup,
 };
 use snowbridge_inbound_queue_primitives::{
 	v1::{ConvertMessage, ConvertMessageError, VersionedXcmMessage},
@@ -65,7 +61,7 @@ use snowbridge_inbound_queue_primitives::{
 
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
 
-use snowbridge_inbound_queue_primitives::v1::{MessageProcessor, Envelope};
+use snowbridge_inbound_queue_primitives::v1::{Envelope, MessageProcessor};
 
 pub use weights::WeightInfo;
 
@@ -78,6 +74,16 @@ type BalanceOf<T> =
 pub use pallet::*;
 
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
+
+pub trait RewardProcessor<T: frame_system::Config> {
+	fn process_reward(who: T::AccountId, event: EventProof) -> DispatchResult;
+}
+
+impl<T: frame_system::Config> RewardProcessor<T> for () {
+	fn process_reward(_who: T::AccountId, _event: EventProof) -> DispatchResult {
+		Ok(())
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -142,6 +148,9 @@ pub mod pallet {
 
 		/// Process the message that was submitted
 		type MessageProcessor: MessageProcessor;
+
+		/// Process the reward to the relayer
+		type RewardProcessor: RewardProcessor<Self>;
 	}
 
 	#[pallet::hooks]
@@ -268,20 +277,7 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
-
+			T::RewardProcessor::process_reward(who, event)?;
 			T::MessageProcessor::process_message(channel, envelope)
 		}
 
