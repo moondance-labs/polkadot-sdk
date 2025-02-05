@@ -123,7 +123,9 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
-	type MessageProcessor = snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type MessageProcessor =
+		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type RewardProcessor = ();
 }
 
 impl snowbridge_pallet_inbound_queue_v2::Config for Runtime {
