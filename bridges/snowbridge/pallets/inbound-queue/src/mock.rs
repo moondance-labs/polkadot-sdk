@@ -2,6 +2,10 @@
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 use super::*;
 
+use crate::{
+	xcm_message_processor::XcmMessageProcessor,
+	{self as inbound_queue},
+};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::IdentityFee};
 use hex_literal::hex;
 use snowbridge_beacon_primitives::{
@@ -27,8 +31,6 @@ use xcm_executor::AssetsInHolding;
 use snowbridge_inbound_queue_primitives::EventFixture;
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
-
-use crate::{self as inbound_queue, xcm_message_processor::XcmMessageProcessor};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -281,6 +283,7 @@ impl inbound_queue::Config for Test {
 	type AssetTransactor = SuccessfulTransactor;
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for
 																				// tuple
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub fn setup() {
