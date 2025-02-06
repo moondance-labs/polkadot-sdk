@@ -86,9 +86,9 @@ impl<T: frame_system::Config> RewardProcessor<T> for () {
 	}
 }
 
-pub struct DeliveryCostReward<T>(sp_std::marker::PhantomData<T>);
+pub struct RewardThroughSovereign<T>(sp_std::marker::PhantomData<T>);
 
-impl<T: pallet::Config> RewardProcessor<T> for DeliveryCostReward<T> {
+impl<T: pallet::Config> RewardProcessor<T> for RewardThroughSovereign<T> {
 	fn process_reward(who: T::AccountId, message: Message) -> DispatchResult {
 		let length = message.encode().len() as u32;
 		let delivery_cost = pallet::Pallet::<T>::calculate_delivery_cost(length);

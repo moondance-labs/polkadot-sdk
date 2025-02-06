@@ -30,7 +30,7 @@ use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, ChannelId, PricingParameters, Rewards};
-use snowbridge_pallet_inbound_queue::DeliveryCostReward;
+use snowbridge_pallet_inbound_queue::RewardThroughSovereign;
 use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
 use sp_core::H160;
 use sp_runtime::traits::Convert;
@@ -102,7 +102,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageProcessor =
 		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
-	type RewardProcessor = DeliveryCostReward<Self>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub struct GetAggregateMessageOrigin;
