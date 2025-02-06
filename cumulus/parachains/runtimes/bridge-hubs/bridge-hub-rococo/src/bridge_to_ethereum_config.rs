@@ -37,7 +37,7 @@ use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
 use benchmark_helpers::DoNothingRouter;
 use bp_asset_hub_rococo::CreateForeignAssetDeposit;
 use hex_literal::hex;
-use snowbridge_pallet_inbound_queue::DeliveryCostReward;
+use snowbridge_pallet_inbound_queue::RewardThroughSovereign;
 use sp_core::H160;
 use sp_runtime::traits::Convert;
 use sp_runtime::{
@@ -107,7 +107,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
 	type MessageProcessor =
 		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
-	type RewardProcessor = DeliveryCostReward<Self>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub struct GetAggregateMessageOrigin;
