@@ -283,6 +283,8 @@ impl inbound_queue::Config for Test {
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for
 																				// tuple
 	type RewardProcessor = DeliveryCostReward<Test>;
+	// TODO: which RewardProcessor
+	//type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub fn setup() {
