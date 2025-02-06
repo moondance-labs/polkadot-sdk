@@ -269,7 +269,7 @@ impl inbound_queue::Config for Test {
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for tuple
-	type RewardProcessor = DeliveryCostReward<Self>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {
