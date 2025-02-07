@@ -80,11 +80,15 @@ pub use pallet::*;
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
 
 pub trait RewardProcessor<T: frame_system::Config> {
-	fn process_reward(who: T::AccountId, event: EventProof) -> DispatchResult;
+	fn process_reward(who: T::AccountId, channel: Channel, message: EventProof) -> DispatchResult;
 }
 
 impl<T: frame_system::Config> RewardProcessor<T> for () {
-	fn process_reward(_who: T::AccountId, _event: EventProof) -> DispatchResult {
+	fn process_reward(
+		_who: T::AccountId,
+		_channel: Channel,
+		_message: EventProof,
+	) -> DispatchResult {
 		Ok(())
 	}
 }
@@ -92,14 +96,9 @@ impl<T: frame_system::Config> RewardProcessor<T> for () {
 pub struct RewardThroughSovereign<T>(sp_std::marker::PhantomData<T>);
 
 impl<T: pallet::Config> RewardProcessor<T> for RewardThroughSovereign<T> {
-	fn process_reward(who: T::AccountId, event: EventProof) -> DispatchResult {
+	fn process_reward(who: T::AccountId, channel: Channel, event: EventProof) -> DispatchResult {
 		let length = event.encode().len() as u32;
 		let delivery_cost = pallet::Pallet::<T>::calculate_delivery_cost(length);
-
-		let envelope =
-			Envelope::try_from(&event.event_log).map_err(|_| Error::<T>::InvalidEnvelope)?;
-		let channel =
-			T::ChannelLookup::lookup(envelope.channel_id).ok_or(Error::<T>::InvalidChannel)?;
 		let sovereign_account: T::AccountId = sibling_sovereign_account::<T>(channel.para_id);
 
 		let amount = T::Token::reducible_balance(
@@ -307,7 +306,7 @@ pub mod pallet {
 				}
 			})?;
 
-			T::RewardProcessor::process_reward(who, event)?;
+			T::RewardProcessor::process_reward(who, channel.clone(), event)?;
 			T::MessageProcessor::process_message(channel, envelope)
 		}
 
