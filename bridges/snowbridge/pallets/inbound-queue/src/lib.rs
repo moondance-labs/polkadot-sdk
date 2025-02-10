@@ -36,11 +36,11 @@ mod test;
 pub mod xcm_message_processor;
 
 use codec::{Decode, Encode};
+use frame_support::traits::tokens::Fortitude;
+use frame_support::traits::tokens::Preservation;
 use frame_support::{
-	traits::{
-		fungible::{Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
-	},
+	pallet_prelude::DispatchResult,
+	traits::fungible::{Inspect, Mutate},
 	weights::WeightToFee,
 	PalletError,
 };
@@ -76,6 +76,37 @@ pub use pallet::*;
 
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
 
+pub trait RewardProcessor<T: frame_system::Config> {
+	fn process_reward(who: T::AccountId, channel: Channel, message: Message) -> DispatchResult;
+}
+
+impl<T: frame_system::Config> RewardProcessor<T> for () {
+	fn process_reward(_who: T::AccountId, _channel: Channel, _message: Message) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub struct RewardThroughSovereign<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: pallet::Config> RewardProcessor<T> for RewardThroughSovereign<T> {
+	fn process_reward(who: T::AccountId, channel: Channel, message: Message) -> DispatchResult {
+		let length = message.encode().len() as u32;
+		let delivery_cost = pallet::Pallet::<T>::calculate_delivery_cost(length);
+		let sovereign_account: T::AccountId = sibling_sovereign_account::<T>(channel.para_id);
+
+		let amount = T::Token::reducible_balance(
+			&sovereign_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.min(delivery_cost);
+		if !amount.is_zero() {
+			T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+		}
+
+		Ok(())
+	}
+}
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -139,6 +170,9 @@ pub mod pallet {
 
 		/// Process the message that was submitted
 		type MessageProcessor: MessageProcessor;
+
+		/// Process the reward to the relayer
+		type RewardProcessor: RewardProcessor<Self>;
 	}
 
 	#[pallet::hooks]
@@ -263,20 +297,7 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(message.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
-
+			T::RewardProcessor::process_reward(who, channel.clone(), message)?;
 			T::MessageProcessor::process_message(channel, envelope)
 		}
 

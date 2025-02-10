@@ -16,7 +16,7 @@ use snowbridge_router_primitives::inbound::MessageToXcm;
 use sp_core::{H160, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, MaybeEquivalence, Verify},
-	BuildStorage, FixedU128, MultiSignature, DispatchError,
+	BuildStorage, DispatchError, FixedU128, MultiSignature,
 };
 use sp_std::{convert::From, default::Default};
 use xcm::{latest::SendXcm, prelude::*};
@@ -269,6 +269,7 @@ impl inbound_queue::Config for Test {
 	type MaxMessageSize = ConstU32<1024>;
 	type AssetTransactor = SuccessfulTransactor;
 	type MessageProcessor = (DummyPrefix, XcmMessageProcessor<Test>, DummySuffix); // We are passively testing if implementation of MessageProcessor trait works correctly for tuple
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
 
 pub fn last_events(n: usize) -> Vec<RuntimeEvent> {

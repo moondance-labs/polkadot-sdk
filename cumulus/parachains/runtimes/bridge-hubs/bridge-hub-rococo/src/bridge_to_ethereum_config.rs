@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::xcm_config::RelayNetwork;
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::XcmRouter;
 use crate::{
@@ -21,26 +22,26 @@ use crate::{
 	EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
 	TreasuryAccount,
 };
+#[cfg(feature = "runtime-benchmarks")]
+use benchmark_helpers::DoNothingRouter;
+use bridge_hub_common::AggregateMessageOrigin;
+use frame_support::{parameter_types, weights::ConstantMultiplier};
+use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
 use snowbridge_core::{gwei, meth, AllowSiblingsOnly, ChannelId, PricingParameters, Rewards};
-use sp_runtime::traits::Convert;
+use snowbridge_pallet_inbound_queue::RewardThroughSovereign;
 use snowbridge_router_primitives::{inbound::MessageToXcm, outbound::EthereumBlobExporter};
 use sp_core::H160;
+use sp_runtime::traits::Convert;
+use sp_runtime::{
+	traits::{ConstU32, ConstU8, Keccak256},
+	FixedU128,
+};
 use testnet_parachains_constants::rococo::{
 	currency::*,
 	fee::WeightToFee,
 	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
-};
-use bridge_hub_common::AggregateMessageOrigin;
-use crate::xcm_config::RelayNetwork;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
-use frame_support::{parameter_types, weights::ConstantMultiplier};
-use pallet_xcm::EnsureXcm;
-use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
-	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
 
@@ -99,18 +100,18 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
-	type MessageProcessor = snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type MessageProcessor =
+		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
 }
-
 
 pub struct GetAggregateMessageOrigin;
 
 impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
-    fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
-        AggregateMessageOrigin::Snowbridge(channel_id)
-    }
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
 }
-
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
