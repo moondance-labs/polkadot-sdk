@@ -36,7 +36,6 @@ mod v1 {
 	use scale_info::TypeInfo;
 	use sp_core::{RuntimeDebug, H160, H256, U256};
 	use sp_std::{borrow::ToOwned, vec, vec::Vec};
-        use primitive_types_hack::IntoHack as _;
 
 	/// A message which can be accepted by implementations of `/[`SendMessage`\]`
 	#[derive(Encode, Decode, TypeInfo, Clone, RuntimeDebug)]
@@ -202,7 +201,7 @@ mod v1 {
 					])]),
 				Command::Upgrade { impl_address, impl_code_hash, initializer, .. } =>
 					ethabi::encode(&[Token::Tuple(vec![
-						Token::Address((*impl_address).into_p()),
+						Token::Address(*impl_address),
 						Token::FixedBytes(impl_code_hash.as_bytes().to_owned()),
 						initializer
 							.clone()
@@ -216,55 +215,55 @@ mod v1 {
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(channel_id.as_ref().to_owned()),
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
-						Token::Uint(U256::from((*mode) as u64).into_p()),
+						Token::Uint(U256::from((*mode) as u64)),
 					])]),
 				Command::UpdateChannel { channel_id, mode } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(channel_id.as_ref().to_owned()),
-						Token::Uint(U256::from((*mode) as u64).into_p()),
+						Token::Uint(U256::from((*mode) as u64)),
 					])]),
 				Command::SetOperatingMode { mode } =>
-					ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64).into_p())])]),
+					ethabi::encode(&[Token::Tuple(vec![Token::Uint(U256::from((*mode) as u64))])]),
 				Command::TransferNativeFromAgent { agent_id, recipient, amount } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
-						Token::Address((*recipient).into_p()),
-						Token::Uint(U256::from(*amount).into_p()),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
 					])]),
 				Command::SetTokenTransferFees {
 					create_asset_xcm,
 					transfer_asset_xcm,
 					register_token,
 				} => ethabi::encode(&[Token::Tuple(vec![
-					Token::Uint(U256::from(*create_asset_xcm).into_p()),
-					Token::Uint(U256::from(*transfer_asset_xcm).into_p()),
-					Token::Uint((*register_token).into_p()),
+					Token::Uint(U256::from(*create_asset_xcm)),
+					Token::Uint(U256::from(*transfer_asset_xcm)),
+					Token::Uint(*register_token),
 				])]),
 				Command::SetPricingParameters { exchange_rate, delivery_cost, multiplier } =>
 					ethabi::encode(&[Token::Tuple(vec![
-						Token::Uint(exchange_rate.clone().into_inner().into_p()),
-						Token::Uint(U256::from(*delivery_cost).into_p()),
-						Token::Uint(multiplier.clone().into_inner().into_p()),
+						Token::Uint(exchange_rate.clone().into_inner()),
+						Token::Uint(U256::from(*delivery_cost)),
+						Token::Uint(multiplier.clone().into_inner()),
 					])]),
 				Command::TransferNativeToken { agent_id, token, recipient, amount } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(agent_id.as_bytes().to_owned()),
-						Token::Address((*token).into_p()),
-						Token::Address((*recipient).into_p()),
-						Token::Uint(U256::from(*amount).into_p()),
+						Token::Address(*token),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
 					])]),
 				Command::RegisterForeignToken { token_id, name, symbol, decimals } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(token_id.as_bytes().to_owned()),
 						Token::String(name.to_owned()),
 						Token::String(symbol.to_owned()),
-						Token::Uint(U256::from(*decimals).into_p()),
+						Token::Uint(U256::from(*decimals)),
 					])]),
 				Command::MintForeignToken { token_id, recipient, amount } =>
 					ethabi::encode(&[Token::Tuple(vec![
 						Token::FixedBytes(token_id.as_bytes().to_owned()),
-						Token::Address((*recipient).into_p()),
-						Token::Uint(U256::from(*amount).into_p()),
+						Token::Address(*recipient),
+						Token::Uint(U256::from(*amount)),
 					])]),
 			}
 		}
@@ -309,9 +308,9 @@ mod v1 {
 					ethabi::encode(&[
 						Token::Uint(self.index().into()),
 						Token::Bytes(ethabi::encode(&[
-							Token::Address((*token).into_p()),
-							Token::Address((*recipient).into_p()),
-							Token::Uint(U256::from(*amount).into_p()),
+							Token::Address(*token),
+							Token::Address(*recipient),
+							Token::Uint(U256::from(*amount)),
 						])),
 					]),
 			}
