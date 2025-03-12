@@ -36,7 +36,11 @@ pub use core::{cell::RefCell, fmt::Debug};
 pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessageOrigin;
 pub use frame_support::{
 	assert_ok,
-	sp_runtime::{traits::{Dispatchable, Header as HeaderT}, Digest, DigestItem, DispatchResult},
+	sp_runtime::{
+		traits::{Convert, Dispatchable, Header as HeaderT},
+		Digest,
+		DispatchResult,
+	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnInitialize, OriginTrait,
 		ProcessMessage, ProcessMessageError, ServiceQueues,
@@ -108,7 +112,6 @@ thread_local! {
 	/// Most recent `HeadData` of each parachain, encoded.
 	pub static LAST_HEAD: RefCell<HashMap<String, HashMap<u32, HeadData>>> = RefCell::new(HashMap::new());
 }
-
 pub trait CheckAssertion<Origin, Destination, Hops, Args>
 where
 	Origin: Chain + Clone,
@@ -265,6 +268,7 @@ pub trait Parachain: Chain {
 	type ParachainInfo: Get<ParaId>;
 	type ParachainSystem;
 	type MessageProcessor: ProcessMessage + ServiceQueues;
+	type DigestProvider: Convert<BlockNumberFor<Self::Runtime>, Digest>;
 
 	fn init();
 
@@ -600,6 +604,7 @@ macro_rules! decl_test_parachains {
 					LocationToAccountId: $location_to_account:path,
 					ParachainInfo: $parachain_info:path,
 					MessageOrigin: $message_origin:path,
+					DigestProvider: $digest_provider:ty,
 				},
 				pallets = {
 					$($pallet_name:ident: $pallet_path:path,)*
@@ -640,6 +645,7 @@ macro_rules! decl_test_parachains {
 				type ParachainSystem = $crate::ParachainSystemPallet<<Self as $crate::Chain>::Runtime>;
 				type ParachainInfo = $parachain_info;
 				type MessageProcessor = $crate::DefaultParaMessageProcessor<$name<N>, $message_origin>;
+				type DigestProvider = $digest_provider;
 
 				// We run an empty block during initialisation to open HRMP channels
 				// and have them ready for the next block
@@ -680,26 +686,14 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 
-						let digests = <Self as Chain>::System::digest();
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
 
-						let slot = digests
-							.convert_first(|item| item.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID))
-							.unwrap_or_default();
-						
-						let slot = u64::from(slot);
-
-						let new_slot_digest: Digest = Digest {
-							logs: vec![
-								DigestItem::PreRuntime(AURA_ENGINE_ID, (slot + 1u64).encode()),
-							],
-						};
-
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &new_slot_digest);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
 
 						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
 							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, ((slot + 1))),
+							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						);
 					});
 				}
@@ -1131,11 +1125,11 @@ macro_rules! decl_test_networks {
 				fn hrmp_channel_parachain_inherent_data(
 					para_id: u32,
 					relay_parent_number: u32,
-					parent_head_data: $crate::HeadData,
-					relay_slot: u64
+					parent_head_data: $crate::HeadData
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
+					sproof.current_slot = $crate::polkadot_primitives::Slot::from(relay_parent_number as u64);
 
 					// egress channel
 					let e_index = sproof.hrmp_egress_channel_index.get_or_insert_with(Vec::new);
