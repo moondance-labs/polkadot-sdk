@@ -60,7 +60,7 @@ pub use sp_consensus_slots::Slot;
 pub use sp_consensus_aura::AURA_ENGINE_ID;
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
-pub use sp_runtime::{traits::Convert, BoundedSlice};
+pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
@@ -189,7 +189,6 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
-		relay_slot: u64,
 	) -> ParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
@@ -664,8 +663,7 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt, 
-						Slot, AURA_ENGINE_ID, Digest, DigestItem};
+					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt, Convert};
 
 					let para_id = Self::para_id().into();
 
@@ -1140,7 +1138,6 @@ macro_rules! decl_test_networks {
 						}
 
 						sproof.included_para_head = parent_head_data.clone().into();
-						sproof.current_slot = relay_slot.into();
 
 						sproof
 							.hrmp_channels
