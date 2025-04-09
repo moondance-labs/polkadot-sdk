@@ -37,8 +37,8 @@ pub use cumulus_primitives_core::AggregateMessageOrigin as CumulusAggregateMessa
 pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
-		traits::{Dispatchable, Header as HeaderT},
-		Digest, DigestItem, DispatchResult,
+		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
+		BoundedSlice, Digest, DigestItem, DispatchResult,
 	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
@@ -52,7 +52,7 @@ pub use frame_system::{
 };
 pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
-pub use pallet_timestamp::Call as TimestampCall;
+pub use pallet_timestamp::{Call as TimestampCall, Config as TimestampConfig};
 pub use sp_arithmetic::traits::Bounded;
 pub use sp_consensus_aura::AURA_ENGINE_ID;
 pub use sp_consensus_slots::Slot;
@@ -61,7 +61,6 @@ pub use sp_core::{
 };
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
-pub use sp_runtime::{traits::Convert, BoundedSlice};
 pub use sp_tracing;
 
 // Cumulus
@@ -77,8 +76,8 @@ pub use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 pub use pallet_message_queue::{Config as MessageQueueConfig, Pallet as MessageQueuePallet};
 pub use parachains_common::{AccountId, Balance};
 pub use polkadot_primitives;
-pub use polkadot_runtime_parachains::inclusion::{UmpQueueId};
 pub use polkadot_runtime_parachains::inclusion::Config as InclusionConfig;
+pub use polkadot_runtime_parachains::inclusion::UmpQueueId;
 
 // Polkadot
 pub use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
@@ -668,8 +667,10 @@ macro_rules! decl_test_parachains {
 				}
 
 				fn new_block() {
-					use $crate::{Chain, HeadData, Network, Hooks, Encode, Parachain, TestExt,
-						Slot, AURA_ENGINE_ID, Digest, DigestItem};
+					use $crate::{
+						Dispatchable, Chain, Convert, TestExt, Zero, HeadData, Network, Hooks, Encode, Parachain,
+						Slot, AURA_ENGINE_ID, Digest, DigestItem, OnInitialize, TimestampConfig, Get,
+					};
 
 					let para_id = Self::para_id().into();
 
@@ -690,6 +691,7 @@ macro_rules! decl_test_parachains {
 							.clone()
 						);
 
+						// Initialze `System`.
 						let digests = <Self as Chain>::System::digest();
 
 						let slot = digests
@@ -697,19 +699,34 @@ macro_rules! decl_test_parachains {
 							.unwrap_or_default();
 
 						let slot = u64::from(slot);
+						let new_slot = slot + 1;
 
-						let new_slot_digest: Digest = Digest {
+						let new_slot_digest: $crate::Digest = $crate::Digest {
 							logs: vec![
-								DigestItem::PreRuntime(AURA_ENGINE_ID, (slot + 1u64).encode()),
+								$crate::DigestItem::PreRuntime(AURA_ENGINE_ID, (slot + 1u64).encode()),
 							],
 						};
-
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &new_slot_digest);
-						<<Self as Parachain>::ParachainSystem as Hooks<$crate::BlockNumberFor<Self::Runtime>>>::on_initialize(block_number);
+						// Process `on_initialize` for all pallets except `System`.
+						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
 
-						let _ = <Self as Parachain>::ParachainSystem::set_validation_data(
-							<Self as Chain>::RuntimeOrigin::none(),
-							N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, ((slot + 1))),
+						// Process parachain inherents:
+
+						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
+						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, new_slot),
+						}.into();
+						$crate::assert_ok!(
+							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
+						);
+
+						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
+						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
+							// We need to satisfy `pallet_timestamp::on_finalize`.
+							now: new_slot * 6000,
+						}.into();
+						$crate::assert_ok!(
+							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 					});
 				}
@@ -1470,7 +1487,9 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		MessageQueuePallet::<T::Runtime>::enqueue_message(
 			msg.try_into().expect("Message too long"),
-			<T::Runtime as InclusionConfig>::GetAggregateMessageOrigin::convert(UmpQueueId::Para(para)),
+			<T::Runtime as InclusionConfig>::GetAggregateMessageOrigin::convert(UmpQueueId::Para(
+				para,
+			)),
 		);
 		MessageQueuePallet::<T::Runtime>::service_queues(Weight::MAX);
 
