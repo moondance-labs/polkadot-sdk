@@ -144,6 +144,8 @@ pub type XcmMessageProcessorAlias = XcmMessageProcessor<
 		EthereumGatewayAddress,
 		EthereumUniversalLocation,
 		AssetHubFromEthereum,
+		AssetHubUniversalLocation,
+		AccountId,
 	>,
 	xcm_builder::AliasesIntoAccountId32<
 		xcm_config::RelayNetwork,
