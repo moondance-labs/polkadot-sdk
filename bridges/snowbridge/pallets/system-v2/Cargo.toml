@@ -35,6 +35,8 @@ sp-std.workspace = true
 xcm-executor.workspace = true
 xcm.workspace = true
 
+tracing = { workspace = true }
+
 [dev-dependencies]
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { default-features = true, workspace = true }
@@ -60,6 +62,7 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
+	"tracing/std",
 	"xcm-executor/std",
 	"xcm/std",
 ]

@@ -3,10 +3,8 @@
 use super::*;
 
 use crate::{self as inbound_queue_v2, message_processors::XcmMessageProcessor};
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use hex_literal::hex;
-use scale_info::TypeInfo;
 use snowbridge_beacon_primitives::{
 	types::deneb, BeaconHeader, ExecutionProof, VersionedExecutionPayloadHeader,
 };
@@ -20,6 +18,7 @@ use sp_runtime::{
 use sp_std::{convert::From, default::Default, marker::PhantomData};
 use xcm::{opaque::latest::WESTEND_GENESIS_HASH, prelude::*};
 type Block = frame_system::mocking::MockBlock<Test>;
+use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
 frame_support::construct_runtime!(
@@ -106,38 +105,6 @@ parameter_types! {
 	pub const CreateAssetDeposit: u128 = 10_000_000_000u128;
 }
 
-/// Showcasing that we can handle multiple different rewards with the same pallet.
-#[derive(
-	Clone,
-	Copy,
-	Debug,
-	Decode,
-	Encode,
-	DecodeWithMemTracking,
-	Eq,
-	MaxEncodedLen,
-	PartialEq,
-	TypeInfo,
-)]
-pub enum BridgeReward {
-	/// Rewards for Snowbridge.
-	Snowbridge,
-}
-
-parameter_types! {
-	pub static RegisteredRewardsCount: u128 = 0;
-}
-
-impl RewardLedger<<mock::Test as frame_system::Config>::AccountId, BridgeReward, u128> for () {
-	fn register_reward(
-		_relayer: &<mock::Test as frame_system::Config>::AccountId,
-		_reward: BridgeReward,
-		_reward_balance: u128,
-	) {
-		RegisteredRewardsCount::set(RegisteredRewardsCount::get().saturating_add(1));
-	}
-}
-
 pub struct DummyPrefix;
 
 impl MessageProcessor<AccountId> for DummyPrefix {
@@ -165,7 +132,8 @@ impl MessageProcessor<AccountId> for DummySuffix {
 impl inbound_queue_v2::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Verifier = MockVerifier;
-	type RewardPayment = ();
+	type XcmSender = MockXcmSender;
+	type XcmExecutor = MockXcmExecutor;
 	type GatewayAddress = GatewayAddress;
 	// Passively test that the implementation of MessageProcessor trait works correctly for tuple
 	type MessageProcessor = (
@@ -194,6 +162,7 @@ impl inbound_queue_v2::Config for Test {
 	type WeightInfo = ();
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
+	type RewardPayment = MockRewardLedger;
 }
 
 pub fn setup() {

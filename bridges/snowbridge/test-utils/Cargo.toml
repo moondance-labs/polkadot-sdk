@@ -15,6 +15,7 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+bp-relayers = { workspace = true, default-features = true }
 codec = { workspace = true, default-features = true }
 frame-benchmarking = { optional = true, workspace = true, default-features = true }
 frame-support.default-features = true
@@ -25,6 +26,7 @@ hex = { workspace = true, default-features = true }
 log = { workspace = true, default-features = true }
 pallet-xcm.default-features = true
 pallet-xcm.workspace = true
+pallet-asset-conversion = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 snowbridge-core.default-features = true
 snowbridge-core.workspace = true
