@@ -38,7 +38,7 @@ pub use frame_support::{
 	assert_ok,
 	sp_runtime::{
 		traits::{Convert, Dispatchable, Header as HeaderT, Zero},
-		BoundedSlice, Digest, DigestItem, DispatchResult,
+		Digest, DispatchResult,
 	},
 	traits::{
 		EnqueueMessage, ExecuteOverweightError, Get, Hooks, OnFinalize, OnIdle, OnInitialize,
@@ -54,13 +54,12 @@ pub use pallet_balances::AccountData;
 pub use pallet_message_queue;
 pub use pallet_timestamp::{Call as TimestampCall, Config as TimestampConfig};
 pub use sp_arithmetic::traits::Bounded;
-pub use sp_consensus_aura::AURA_ENGINE_ID;
-pub use sp_consensus_slots::Slot;
 pub use sp_core::{
 	crypto::get_public_from_string_or_panic, parameter_types, sr25519, storage::Storage, Pair,
 };
 pub use sp_crypto_hashing::blake2_256;
 pub use sp_io::TestExternalities;
+pub use sp_runtime::BoundedSlice;
 pub use sp_tracing;
 
 // Cumulus
@@ -191,7 +190,6 @@ pub trait Network {
 		para_id: u32,
 		relay_parent_number: u32,
 		parent_head_data: HeadData,
-		relay_slot: u64,
 	) -> ParachainInherentData;
 	fn send_horizontal_messages<I: Iterator<Item = (ParaId, RelayBlockNumber, Vec<u8>)>>(
 		to_para_id: u32,
@@ -668,8 +666,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero, HeadData, Network, Hooks, Encode, Parachain,
-						Slot, AURA_ENGINE_ID, Digest, DigestItem, OnInitialize, TimestampConfig, Get,
+						Dispatchable, Chain, Convert, TestExt, Zero,
 					};
 
 					let para_id = Self::para_id().into();
@@ -692,21 +689,9 @@ macro_rules! decl_test_parachains {
 						);
 
 						// Initialze `System`.
-						let digests = <Self as Chain>::System::digest();
+						let digest = <Self as Parachain>::DigestProvider::convert(block_number);
+						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
-						let slot = digests
-							.convert_first(|item| item.pre_runtime_try_to::<Slot>(&AURA_ENGINE_ID))
-							.unwrap_or_default();
-
-						let slot = u64::from(slot);
-						let new_slot = slot + 1;
-
-						let new_slot_digest: $crate::Digest = $crate::Digest {
-							logs: vec![
-								$crate::DigestItem::PreRuntime(AURA_ENGINE_ID, (slot + 1u64).encode()),
-							],
-						};
-						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &new_slot_digest);
 						// Process `on_initialize` for all pallets except `System`.
 						let _ = $runtime::AllPalletsWithoutSystem::on_initialize(block_number);
 
@@ -714,7 +699,7 @@ macro_rules! decl_test_parachains {
 
 						// 1. inherent: cumulus_pallet_parachain_system::Call::set_validation_data
 						let set_validation_data: <Self as Chain>::RuntimeCall = $crate::ParachainSystemCall::set_validation_data {
-							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data, new_slot),
+							data: N::hrmp_channel_parachain_inherent_data(para_id, relay_block_number, parent_head_data),
 						}.into();
 						$crate::assert_ok!(
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
@@ -723,7 +708,7 @@ macro_rules! decl_test_parachains {
 						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
 						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
 							// We need to satisfy `pallet_timestamp::on_finalize`.
-							now: new_slot * 6000,
+							now: relay_block_number*6000.try_into().unwrap(),
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
@@ -1171,7 +1156,6 @@ macro_rules! decl_test_networks {
 					para_id: u32,
 					relay_parent_number: u32,
 					parent_head_data: $crate::HeadData,
-					relay_slot: u64
 				) -> $crate::ParachainInherentData {
 					let mut sproof = $crate::RelayStateSproofBuilder::default();
 					sproof.para_id = para_id.into();
@@ -1186,7 +1170,6 @@ macro_rules! decl_test_networks {
 						}
 
 						sproof.included_para_head = parent_head_data.clone().into();
-						sproof.current_slot = relay_slot.into();
 
 						sproof
 							.hrmp_channels
