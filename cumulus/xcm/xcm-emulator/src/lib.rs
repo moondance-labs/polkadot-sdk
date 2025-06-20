@@ -666,7 +666,7 @@ macro_rules! decl_test_parachains {
 
 				fn new_block() {
 					use $crate::{
-						Dispatchable, Chain, Convert, TestExt, Zero,
+						Dispatchable, Chain, Convert, TestExt, Zero, TimestampConfig
 					};
 
 					let para_id = Self::para_id().into();
@@ -705,10 +705,12 @@ macro_rules! decl_test_parachains {
 							set_validation_data.dispatch(<Self as Chain>::RuntimeOrigin::none())
 						);
 
+						let timestamp: u64 = (relay_block_number*6000).into();
+
 						// 2. inherent: pallet_timestamp::Call::set (we expect the parachain has `pallet_timestamp`)
 						let timestamp_set: <Self as Chain>::RuntimeCall = $crate::TimestampCall::set {
 							// We need to satisfy `pallet_timestamp::on_finalize`.
-							now: relay_block_number*6000.try_into().unwrap(),
+							now: timestamp,
 						}.into();
 						$crate::assert_ok!(
 							timestamp_set.dispatch(<Self as Chain>::RuntimeOrigin::none())
