@@ -11,6 +11,15 @@ use snowbridge_core::eth;
 use snowbridge_outbound_queue_primitives::OperatingMode;
 use sp_runtime::SaturatedConversion;
 use xcm::prelude::*;
+use snowbridge_core::sibling_sovereign_account;
+
+#[allow(clippy::result_large_err)]
+fn fund_sovereign_account<T: Config>(para_id: ParaId) -> Result<(), BenchmarkError> {
+	let amount: BalanceOf<T> = (10_000_000_000_000_u64).saturated_into::<u128>().saturated_into();
+	let sovereign_account = sibling_sovereign_account::<T>(para_id);
+	T::Token::mint_into(&sovereign_account, amount)?;
+	Ok(())
+}
 
 #[benchmarks]
 mod benchmarks {
@@ -52,6 +61,44 @@ mod benchmarks {
 
 		Ok(())
 	}
+
+	#[benchmark]
+	fn force_update_channel() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location.clone());
+		let channel_id: ChannelId = ParaId::from(origin_para_id).into();
+
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+		let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
+		Agents::<T>::insert(agent_id, ());
+		let channel_id: ChannelId = para_id.into();
+		let channel = Channel { agent_id, para_id };
+		Channels::<T>::insert(channel_id, channel);
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, channel_id, OperatingMode::RejectingOutboundMessages);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn force_transfer_native_from_agent() -> Result<(), BenchmarkError> {
+		let origin_para_id = 2000;
+		let origin_location = Location::new(1, [Parachain(origin_para_id)]);
+		let origin = T::Helper::make_xcm_origin(origin_location.clone());
+		fund_sovereign_account::<T>(origin_para_id.into())?;
+		let (para_id, agent_id) = ensure_sibling::<T>(&origin_location)?;
+		Agents::<T>::insert(agent_id, ());
+
+		let versioned_location: VersionedLocation = origin_location.into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, Box::new(versioned_location), H160::default(), 1);
+
+		Ok(())
+	}
+
 
 	#[benchmark]
 	fn set_token_transfer_fees() -> Result<(), BenchmarkError> {
