@@ -72,7 +72,7 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 use snowbridge_beacon_primitives::BeaconHeader;
 #[cfg(feature = "runtime-benchmarks")]
-use snowbridge_inbound_queue_primitives::v1::EventFixture;
+use snowbridge_inbound_queue_primitives::EventFixture;
 
 type BalanceOf<T> =
 	<<T as pallet::Config>::Token as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
