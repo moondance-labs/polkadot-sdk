@@ -13,8 +13,9 @@ use sp_core::{Get, RuntimeDebug, H160, H256};
 use sp_runtime::{traits::MaybeEquivalence, DispatchError, MultiAddress};
 use sp_std::prelude::*;
 use xcm::prelude::{Junction::AccountKey20, *};
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, SolEvent};
+use alloy_core::primitives::B256;
+use alloy_core::sol;
+use alloy_core::sol_types::SolEvent;
 
 const MINIMUM_DEPOSIT: u128 = 1;
 

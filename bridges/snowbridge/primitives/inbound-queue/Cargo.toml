@@ -15,8 +15,6 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
-alloy-primitives = { features = ["rlp"], workspace = true }
-alloy-sol-types = { workspace = true }
 alloy-core = { workspace = true, features = ["sol-types"] }
 codec = { workspace = true }
 frame-support.workspace = true

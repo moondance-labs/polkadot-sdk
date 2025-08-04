@@ -6,8 +6,9 @@ use snowbridge_verification_primitives::Log;
 use sp_core::{RuntimeDebug, H160, H256};
 use sp_std::prelude::*;
 
-use alloy_primitives::B256;
-use alloy_sol_types::{sol, SolEvent};
+use alloy_core::primitives::B256;
+use alloy_core::sol;
+use alloy_core::sol_types::{SolEvent};
 
 sol! {
 	event OutboundMessageAccepted(bytes32 indexed channel_id, uint64 nonce, bytes32 indexed message_id, bytes payload);
