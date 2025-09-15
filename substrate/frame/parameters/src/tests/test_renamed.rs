@@ -69,6 +69,33 @@ pub mod dynamic_params {
 	}
 }
 
+#[dynamic_params(SerializableRuntimeParametersRenamed, pallet_parameters::SerializableParameters::<Runtime>, impl_serialize = true)]
+pub mod serializable_dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 3)]
+	pub mod pallet1 {
+		#[codec(index = 0)]
+		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
+		pub static Key2: u32 = 1;
+		#[codec(index = 2)]
+		pub static Key3: u128 = 2;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod pallet2 {
+		#[codec(index = 2)]
+		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
+		pub static Key2: u32 = 2;
+		#[codec(index = 0)]
+		pub static Key3: u128 = 4;
+	}
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 impl Default for RuntimeParametersRenamed {
 	fn default() -> Self {
@@ -83,6 +110,7 @@ impl Default for RuntimeParametersRenamed {
 impl Config for Runtime {
 	type AdminOrigin = AsEnsureOriginWithArg<EnsureRoot<Self::AccountId>>;
 	type RuntimeParameters = RuntimeParametersRenamed;
+	type SerializableRuntimeParameters = SerializableRuntimeParametersRenamed;
 	// RuntimeEvent is injected by the `derive_impl` macro.
 	// WeightInfo is injected by the `derive_impl` macro.
 }

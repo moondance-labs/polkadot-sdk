@@ -823,15 +823,16 @@ pub fn inject_runtime_type(_: TokenStream, tokens: TokenStream) -> TokenStream {
 		item.ident != "RuntimeHoldReason" &&
 		item.ident != "RuntimeFreezeReason" &&
 		item.ident != "RuntimeParameters" &&
-		item.ident != "PalletInfo"
+		item.ident != "PalletInfo" &&
+		item.ident != "SerializableRuntimeParameters"
 	{
 		return syn::Error::new_spanned(
 			item,
 			"`#[inject_runtime_type]` can only be attached to `RuntimeCall`, `RuntimeEvent`, \
-			`RuntimeTask`, `RuntimeViewFunction`, `RuntimeOrigin`, `RuntimeParameters` or `PalletInfo`",
+			`RuntimeTask`, `RuntimeViewFunction`, `RuntimeOrigin`, `RuntimeParameters`, `PalletInfo` or `SerializableRuntimeParameters`",
 		)
-		.to_compile_error()
-		.into();
+			.to_compile_error()
+			.into();
 	}
 	tokens
 }

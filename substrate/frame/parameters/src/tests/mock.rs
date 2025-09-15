@@ -82,6 +82,48 @@ pub mod dynamic_params {
 	}
 }
 
+
+#[dynamic_params(SerializableRuntimeParameters, pallet_parameters::SerializableParameters::<Runtime>, impl_serialize = true)]
+pub mod serializable_dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 3)]
+	pub mod pallet1 {
+		#[codec(index = 0)]
+		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
+		pub static Key2: u32 = 1;
+		#[codec(index = 2)]
+		pub static Key3: u128 = 2;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 1)]
+	pub mod pallet2 {
+		#[codec(index = 2)]
+		pub static Key1: u64 = 0;
+		#[codec(index = 1)]
+		pub static Key2: u32 = 2;
+		#[codec(index = 0)]
+		pub static Key3: u128 = 4;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 2)]
+	pub mod nis {
+		#[codec(index = 0)]
+		pub static Target: u64 = 0;
+	}
+
+	#[dynamic_pallet_params]
+	#[codec(index = 4)]
+	pub mod somE_weird_SPElLInG_s {
+		#[codec(index = 0)]
+		pub static V: u64 = 0;
+	}
+}
+
 #[docify::export(benchmarking_default)]
 #[cfg(feature = "runtime-benchmarks")]
 impl Default for RuntimeParameters {
@@ -117,7 +159,7 @@ mod custom_origin {
 				RuntimeParametersKey::Pallet1(_) => ensure_root(origin.clone()),
 				RuntimeParametersKey::Pallet2(_) => ensure_signed(origin.clone()).map(|_| ()),
 			}
-			.map_err(|_| origin)
+				.map_err(|_| origin)
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
