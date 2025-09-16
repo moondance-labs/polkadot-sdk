@@ -134,6 +134,9 @@ mod weights;
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+use sp_runtime::Vec;
+use sp_core::serde;
+
 /// The key type of a parameter.
 type KeyOf<T> = <<T as Config>::RuntimeParameters as AggregatedKeyValue>::Key;
 type SerializableKeyOf<T> = <<T as Config>::SerializableRuntimeParameters as AggregatedKeyValue>::Key;

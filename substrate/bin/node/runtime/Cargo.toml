@@ -25,6 +25,7 @@ scale-info = { features = ["derive", "serde"], workspace = true }
 serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 sp-debug-derive = { workspace = true, features = ["force-debug"] }
 static_assertions = { workspace = true, default-features = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
 
 # pallet-asset-conversion: turn on "num-traits" feature
 primitive-types = { features = ["codec", "num-traits", "scale-info"], workspace = true }

@@ -335,8 +335,8 @@ pub mod dynamic_params {
 	}
 }
 
-#[dynamic_params(SerializableRuntimeParameters, pallet_parameters::Parameters::<Runtime>, impl_serialize = true)]
-pub mod serializable_runtime_parameters {
+#[dynamic_params(SerializableRuntimeParameters, pallet_parameters::SerializableParameters::<Runtime>, impl_serialize = true)]
+pub mod serializable_dynamic_parameters {
 
 }
 
