@@ -220,6 +220,8 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
 	type AggregateMessageOrigin = AggregateMessageOrigin;
+	// No consumers of this notifier on Bridge Hub.
+	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }
