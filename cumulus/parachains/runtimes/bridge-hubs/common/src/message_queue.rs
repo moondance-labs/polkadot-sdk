@@ -189,3 +189,9 @@ impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToSib
 		AggregateMessageOrigin::Sibling(para_id)
 	}
 }
+
+impl From<H256> for AggregateMessageOrigin {
+	fn from(hash: H256) -> Self {
+		Self::SnowbridgeV2(hash)
+	}
+}

@@ -10,6 +10,7 @@ use frame_support::{
 };
 
 use codec::{DecodeWithMemTracking, Encode, MaxEncodedLen};
+use bridge_hub_common::AggregateMessageOrigin;
 use hex_literal::hex;
 use scale_info::TypeInfo;
 use snowbridge_core::{
@@ -147,6 +148,7 @@ impl crate::Config for Test {
 	type OnNewCommitment = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Test;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 }
 
 fn setup() {
