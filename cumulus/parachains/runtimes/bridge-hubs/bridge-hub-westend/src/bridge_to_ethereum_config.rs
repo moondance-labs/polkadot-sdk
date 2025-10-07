@@ -241,6 +241,10 @@ parameter_types! {
 			version: hex!("05000000"),
 			epoch: 80000000000, // setting to a future epoch for local testing to remain on Deneb.
 		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
+		},
 	};
 }
 
@@ -269,7 +273,11 @@ parameter_types! {
 		},
 		electra: Fork {
 			version: hex!("90000074"),
-			epoch: 222464, // https://github.com/ethereum/EIPs/pull/9322/files
+			epoch: 222464,
+		},
+		fulu: Fork {
+			version: hex!("90000075"),
+			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
 	};
 }
