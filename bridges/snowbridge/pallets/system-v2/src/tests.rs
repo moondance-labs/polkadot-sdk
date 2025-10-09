@@ -176,12 +176,12 @@ fn register_ethereum_native_token_fails() {
 #[test]
 fn add_tip_inbound_succeeds() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(FrontendLocation::get());
+		let who: AccountId = Keyring::Alice.into();
 		let sender: AccountId = Keyring::Alice.into();
 		let message_id = MessageId::Inbound(1);
 		let amount = 1000;
 
-		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+		assert_ok!(EthereumSystemV2::add_tip(RuntimeOrigin::signed(who.clone()), message_id.clone(), amount));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
 			sender: sender.clone(),
@@ -198,14 +198,14 @@ fn add_tip_inbound_succeeds() {
 #[test]
 fn add_tip_inbound_fails_when_nonce_is_consumed() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(FrontendLocation::get());
+		let who: AccountId = Keyring::Alice.into();
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkInboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
 		let message_id = MessageId::Inbound(FAILING_NONCE);
 		let amount = 1000;
 
-		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+		assert_ok!(EthereumSystemV2::add_tip(RuntimeOrigin::signed(who.clone()), message_id.clone(), amount));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
 			sender: sender.clone(),
@@ -222,12 +222,12 @@ fn add_tip_inbound_fails_when_nonce_is_consumed() {
 #[test]
 fn add_tip_outbound_succeeds() {
 	new_test_ext(true).execute_with(|| {
-		let origin = make_xcm_origin(FrontendLocation::get());
+		let who: AccountId = Keyring::Alice.into();
 		let sender: AccountId = Keyring::Alice.into();
 		let message_id = MessageId::Outbound(1);
 		let amount = 500;
 
-		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+		assert_ok!(EthereumSystemV2::add_tip(RuntimeOrigin::signed(who.clone()), message_id.clone(), amount));
 
 		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
 			sender: sender.clone(),
@@ -244,14 +244,14 @@ fn add_tip_outbound_succeeds() {
 #[test]
 fn add_tip_outbound_fails_when_pending_order_not_found() {
 	new_test_ext(false).execute_with(|| {
-		let origin = make_xcm_origin(FrontendLocation::get());
+		let who: AccountId = Keyring::Alice.into();
 		let sender: AccountId = Keyring::Alice.into();
 		// In `MockOkOutboundQueue`, the mocked implementation returns an error when the nonce is
 		// equal to 3, to simulate an error condition.
 		let message_id = MessageId::Outbound(FAILING_NONCE);
 		let amount = 500;
 
-		assert_ok!(EthereumSystemV2::add_tip(origin, sender.clone(), message_id.clone(), amount));
+		assert_ok!(EthereumSystemV2::add_tip(RuntimeOrigin::signed(who.clone()), message_id.clone(), amount));
 		System::assert_last_event(RuntimeEvent::EthereumSystemV2(Event::<Test>::TipProcessed {
 			sender: sender.clone(),
 			message_id,
@@ -268,12 +268,11 @@ fn add_tip_outbound_fails_when_pending_order_not_found() {
 fn add_tip_with_wrong_origin_fails() {
 	new_test_ext(true).execute_with(|| {
 		let invalid_origin = RuntimeOrigin::root();
-		let sender: AccountId = Keyring::Alice.into();
 		let message_id = MessageId::Inbound(1);
 		let amount = 1000;
 
 		assert_noop!(
-			EthereumSystemV2::add_tip(invalid_origin, sender, message_id, amount),
+			EthereumSystemV2::add_tip(invalid_origin, message_id, amount),
 			BadOrigin
 		);
 	});

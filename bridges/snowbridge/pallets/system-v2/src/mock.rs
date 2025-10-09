@@ -14,7 +14,7 @@ use snowbridge_core::{
 };
 
 pub use snowbridge_test_utils::{
-	mock_inbound_queue::*, mock_origin::pallet_xcm_origin, mock_outbound_queue::*,
+	mock_inbound_queue::*, mock_origin::pallet_xcm_origin, mock_outbound_queue::*, mock_xcm::*,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, BlakeTwo256, IdentityLookup},
@@ -112,6 +112,7 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type AssetTransactor = SuccessfulTransactor;
 }
 
 parameter_types! {

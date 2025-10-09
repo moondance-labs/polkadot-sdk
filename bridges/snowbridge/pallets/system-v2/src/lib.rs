@@ -67,6 +67,8 @@ where
 
 #[frame_support::pallet]
 pub mod pallet {
+	use sp_runtime::TokenError;
+	use xcm_executor::traits::TransactAsset;
 	use super::*;
 
 	#[pallet::pallet]
@@ -86,6 +88,8 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self::RuntimeOrigin>;
+		/// To withdraw and deposit an asset.
+		type AssetTransactor: TransactAsset;
 	}
 
 	#[pallet::event]
@@ -141,7 +145,9 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, AccountIdOf<T>, u128, ValueQuery>;
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T> where
+		<T as frame_system::Config>::AccountId: Into<Location>,
+	{
 		/// Sends command to the Gateway contract to upgrade itself with a new implementation
 		/// contract
 		///
@@ -251,11 +257,14 @@ pub mod pallet {
 		#[pallet::weight(<T as pallet::Config>::WeightInfo::add_tip())]
 		pub fn add_tip(
 			origin: OriginFor<T>,
-			sender: AccountIdOf<T>,
 			message_id: MessageId,
 			amount: u128,
-		) -> DispatchResult {
-			T::FrontendOrigin::ensure_origin(origin)?;
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
+			let who = ensure_signed(origin)?;
+			Self::charge_tip(who.clone(), amount)?;
 
 			let result = match message_id {
 				Inbound(nonce) => <T as pallet::Config>::InboundQueue::add_tip(nonce, amount),
@@ -264,13 +273,13 @@ pub mod pallet {
 
 			if let Err(ref e) = result {
 				tracing::debug!(target: LOG_TARGET, ?e, ?message_id, ?amount, "error adding tip");
-				LostTips::<T>::mutate(&sender, |lost_tip| {
+				LostTips::<T>::mutate(&who, |lost_tip| {
 					*lost_tip = lost_tip.saturating_add(amount);
 				});
 			}
 
 			Self::deposit_event(Event::<T>::TipProcessed {
-				sender,
+				sender: who,
 				message_id,
 				amount,
 				success: result.is_ok(),
@@ -281,6 +290,26 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn charge_tip(
+			who: AccountIdOf<T>,
+			amount: u128,
+		) -> DispatchResult
+		where
+			<T as frame_system::Config>::AccountId: Into<Location>,
+		{
+			let who_location: Location = who.into();
+			let fees = Asset { id: AssetId(Location::here()), fun: Fungible(amount) };
+			T::AssetTransactor::withdraw_asset(&fees, &who_location, None).map_err(|error| {
+				log::error!(
+					target: LOG_TARGET,
+					"XCM asset withdraw failed with error {:?}", error
+				);
+				TokenError::FundsUnavailable
+			})?;
+
+			Ok(())
+		}
+
 		/// Send `command` to the Gateway from a specific origin/agent
 		fn send(origin: H256, command: Command, fee: u128) -> DispatchResult {
 			let message = Message {
