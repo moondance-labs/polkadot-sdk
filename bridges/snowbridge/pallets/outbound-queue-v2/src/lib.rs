@@ -72,14 +72,14 @@ use alloy_core::{
 	sol_types::SolValue,
 };
 use bp_relayers::RewardLedger;
-use bridge_hub_common::{AggregateMessageOrigin, CustomDigestItem};
-use codec::Decode;
+use codec::{Decode, FullCodec};
 use frame_support::{
 	storage::StorageStreamIter,
 	traits::{tokens::Balance, EnqueueMessage, Get, ProcessMessageError},
 	weights::{Weight, WeightToFee},
 };
 use snowbridge_core::{
+	digest_item::SnowbridgeDigestItem,
 	reward::{AddTip, AddTipError},
 	BasicOperatingMode,
 };
@@ -93,7 +93,7 @@ use snowbridge_outbound_queue_primitives::{
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
-	traits::{BlockNumberProvider, Hash},
+	traits::{BlockNumberProvider, Debug, Hash},
 	DigestItem,
 };
 use sp_std::prelude::*;
@@ -122,7 +122,16 @@ pub mod pallet {
 
 		type Hashing: Hash<Output = H256>;
 
-		type MessageQueue: EnqueueMessage<AggregateMessageOrigin>;
+		type AggregateMessageOrigin: FullCodec
+			+ MaxEncodedLen
+			+ Clone
+			+ Eq
+			+ PartialEq
+			+ TypeInfo
+			+ Debug
+			+ From<H256>;
+
+		type MessageQueue: EnqueueMessage<Self::AggregateMessageOrigin>;
 
 		/// Measures the maximum gas used to execute a command on Ethereum
 		type GasMeter: GasMeter;
@@ -163,7 +172,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Message has been queued and will be processed in the future
 		MessageQueued {
@@ -239,7 +248,7 @@ pub mod pallet {
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<OutboundMessage>, ValueQuery>;
+	pub type Messages<T: Config> = StorageValue<_, Vec<OutboundMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in `on_initialize`, so state
@@ -247,7 +256,7 @@ pub mod pallet {
 	/// it doesn't have to be included in PoV.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
+	pub type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for the messages
 	#[pallet::storage]
@@ -316,7 +325,7 @@ pub mod pallet {
 			// Create merkle root of messages
 			let root = merkle_root::<<T as Config>::Hashing, _>(MessageLeaves::<T>::stream_iter());
 
-			let digest_item: DigestItem = CustomDigestItem::SnowbridgeV2(root).into();
+			let digest_item: DigestItem = SnowbridgeDigestItem::SnowbridgeV2(root).into();
 
 			// Insert merkle root into the header digest
 			<frame_system::Pallet<T>>::deposit_log(digest_item);

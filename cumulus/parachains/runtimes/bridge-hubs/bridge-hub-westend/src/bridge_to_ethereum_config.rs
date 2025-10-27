@@ -211,6 +211,7 @@ impl snowbridge_pallet_outbound_queue_v2::Config for Runtime {
 	type RewardKind = BridgeReward;
 	type DefaultRewardKind = SnowbridgeReward;
 	type RewardPayment = BridgeRelayers;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = Runtime;
 }
