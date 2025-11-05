@@ -43,7 +43,7 @@ use snowbridge_outbound_queue_primitives::{
 	v2::{Command, Initializer, Message, SendMessage},
 	OperatingMode, SendError,
 };
-use snowbridge_pallet_system::ForeignToNativeId;
+use snowbridge_pallet_system::{ForeignToNativeId, NativeToForeignId};
 use sp_core::{H160, H256};
 use sp_io::hashing::blake2_256;
 use sp_runtime::traits::{MaybeConvert, MaybeEquivalence};
@@ -227,6 +227,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::LocationConversionFailed)?;
 
 			if !ForeignToNativeId::<T>::contains_key(token_id) {
+				NativeToForeignId::<T>::insert(location.clone(), token_id);
 				ForeignToNativeId::<T>::insert(token_id, location.clone());
 			}
 
