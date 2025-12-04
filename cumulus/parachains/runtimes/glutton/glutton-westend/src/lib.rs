@@ -168,13 +168,14 @@ parameter_types! {
 	// We do anything the parent chain tells us in this runtime.
 	pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(2);
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
+	pub storage BlockVelocity: u32 = 1u32;
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+type ConsensusHook = cumulus_pallet_aura_ext::CustomFixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	3,
-	9,
+	BlockVelocity,
+	8,
 >;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -512,7 +513,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BlockVelocity::get()
 		}
 	}
 }

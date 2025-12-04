@@ -19,7 +19,7 @@ count = 4
 
 [[parachains]]
 id = 2000
-chain = "bridge-hub-westend-local"
+chain = "glutton-westend-local-2000"
 
 [parachains.collator]
 name = "collator-2000"
