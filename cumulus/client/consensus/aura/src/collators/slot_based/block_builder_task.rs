@@ -370,7 +370,7 @@ where
 				match para_client.runtime_api().target_block_rate(initial_parent.hash) {
 					Ok(interval) => interval,
 					Err(error) => {
-						tracing::debug!(
+						tracing::info!(
 							target: crate::LOG_TARGET,
 							block = ?initial_parent.hash,
 							?error,
@@ -384,7 +384,7 @@ where
 
 			let blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
 
-			tracing::debug!(
+			tracing::info!(
 				target: crate::LOG_TARGET,
 				%blocks_per_core,
 				core_indices = ?cores.core_indices(),

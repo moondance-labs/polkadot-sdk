@@ -1,0 +1,29 @@
+[settings]
+timeout = 1000
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.scheduler_params]
+max_validators_per_core = 4
+num_cores = 1
+
+[relaychain.genesis.runtimeGenesis.patch.configuration.config.approval_voting_params]
+needed_approvals = 3
+
+[relaychain]
+default_command = "./target/release/polkadot"
+chain = "rococo-local"
+
+[[relaychain.node_groups]]
+name = "validator"
+args = ["-lparachain=debug,parachain::collator-protocol=trace"]
+count = 4
+
+[[parachains]]
+id = 2000
+chain = "bridge-hub-westend-local"
+
+[parachains.collator]
+name = "collator-2000"
+command = "./target/release/polkadot-parachain"
+args = ["-lparachain=debug,parachain::collator-protocol=trace", "--authoring", "slot-based"]
+
+

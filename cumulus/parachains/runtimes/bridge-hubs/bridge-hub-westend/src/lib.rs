@@ -392,10 +392,10 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RelayParentOffset = ConstU32<0>;
 }
 
-type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
+type ConsensusHook = cumulus_pallet_aura_ext::CustomFixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	BLOCK_PROCESSING_VELOCITY,
+	BlockVelocity,
 	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
@@ -403,6 +403,7 @@ impl parachain_info::Config for Runtime {}
 
 parameter_types! {
 	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	pub storage BlockVelocity: u32 = 1u32; 
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -1441,7 +1442,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BlockVelocity::get()
 		}
 	}
 }

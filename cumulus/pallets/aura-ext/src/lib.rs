@@ -43,7 +43,7 @@ pub mod migration;
 #[cfg(test)]
 mod test;
 
-pub use consensus_hook::FixedVelocityConsensusHook;
+pub use consensus_hook::{FixedVelocityConsensusHook, CustomFixedVelocityConsensusHook};
 
 type Aura<T> = pallet_aura::Pallet<T>;
 
