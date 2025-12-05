@@ -145,6 +145,7 @@ where
 			let is_potential =
 				matches!(current_mode, &mut BlockWeightMode::PotentialFullCore { .. });
 
+			log::info!("CURRENT MODE {:?}", current_mode);
 			match current_mode {
 				// We are already allowing the full core, not that much more to do here.
 				BlockWeightMode::<Config>::FullCore { .. } => {},
@@ -181,6 +182,8 @@ where
 
 					// Protection against a misconfiguration as this should be detected by the pre-inherent hook.
 					if block_weight_over_limit {
+						log::info!("INFO ENTERING full");
+
 						*mode = Some(BlockWeightMode::<Config>::full_core());
 
 						// Inform the node that this block uses the full core.
@@ -208,18 +211,28 @@ where
 						.saturating_add(Weight::from_parts(0, len as u64))
 						.any_gt(target_weight)
 					{
+						log::info!("INFO ENTERING POTENTIAL");
 						// When `ALLOW_NORMAL` is `true`, we want to allow all classes of transactions. Inherents are always allowed.
 						let class_allowed = if ALLOW_NORMAL { true } else { info.class == DispatchClass::Operational }
 							|| info.class == DispatchClass::Mandatory;
+
+						log::info!("class allowed {:?}", class_allowed);
+						log::info!("class: {:?}", info.class);
+
+						log::info!("allow: {:?}", ALLOW_NORMAL);
+
+						log::info!("transaction_index: {:?}", transaction_index);
+						log::info!("first_transaction_index: {:?}", first_transaction_index);
 
 						// If the `BundleInfo` digest is not set (function returns `None`), it means we are in some offchain
 						// call like `validate_block`. In this case we assume this is the first block, otherwise these big
 						// transactions will never be able to enter the tx pool.
 						let is_first_block = is_first_block_in_core_with_digest(&digest).unwrap_or(true);
+						log::info!("is_first_block: {:?}", is_first_block);
 
 						if transaction_index.unwrap_or_default().saturating_sub(first_transaction_index.unwrap_or_default()) < MAX_TRANSACTION_TO_CONSIDER
 							&& is_first_block && class_allowed {
-							log::trace!(
+							log::info!(
 								target: LOG_TARGET,
 								"Enabling `PotentialFullCore` mode for extrinsic",
 							);
@@ -231,7 +244,7 @@ where
 								target_weight,
 							));
 						} else {
-							log::trace!(
+							log::info!(
 								target: LOG_TARGET,
 								"Transaction is over the block limit, but is either outside of the allowed window or the dispatch class is not allowed.",
 							);
@@ -239,6 +252,7 @@ where
 							return Err(InvalidTransaction::ExhaustsResources)
 						}
 					} else if is_potential {
+						log::info!("ENTERING is_potential");
 						log::trace!(
 							target: LOG_TARGET,
 							"Resetting back to `FractionOfCore`"
@@ -246,6 +260,8 @@ where
 						*mode =
 							Some(BlockWeightMode::<Config>::fraction_of_core(first_transaction_index.or(transaction_index)));
 					} else {
+						log::info!("regular");
+
 						log::trace!(
 							target: LOG_TARGET,
 							"Not changing block weight mode"

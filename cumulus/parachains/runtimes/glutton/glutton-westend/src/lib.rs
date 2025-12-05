@@ -162,6 +162,10 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
+	type PreInherents = cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeightHooks<
+		Runtime,
+		BlockVelocity,
+	>;
 }
 
 parameter_types! {
@@ -293,17 +297,23 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The extension to the basic transaction logic.
-pub type TxExtension = (
-	frame_system::AuthorizeCall<Runtime>,
-	pallet_sudo::CheckOnlySudoAccount<Runtime>,
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	frame_system::WeightReclaim<Runtime>,
-);
+pub type TxExtension = DynamicMaxBlockWeight<
+	Runtime,
+	(
+		frame_system::AuthorizeCall<Runtime>,
+		pallet_sudo::CheckOnlySudoAccount<Runtime>,
+		frame_system::CheckNonZeroSender<Runtime>,
+		frame_system::CheckSpecVersion<Runtime>,
+		frame_system::CheckTxVersion<Runtime>,
+		frame_system::CheckGenesis<Runtime>,
+		frame_system::CheckEra<Runtime>,
+		frame_system::CheckWeight<Runtime>,
+		frame_system::WeightReclaim<Runtime>,
+	),
+	BlockVelocity
+>;
+
+use cumulus_pallet_parachain_system::block_weight::DynamicMaxBlockWeight;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
