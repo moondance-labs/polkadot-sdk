@@ -129,7 +129,7 @@ impl MessageProcessor<AccountId> for DummyPrefix {
 	fn process_message(
 		_relayer: AccountId,
 		_message: Message,
-	) -> Result<[u8; 32], MessageProcessorError> {
+	) -> Result<([u8; 32], Option<Weight>), MessageProcessorError> {
 		panic!("DummyPrefix::process_message shouldn't be called");
 	}
 }
@@ -144,7 +144,7 @@ impl MessageProcessor<AccountId> for DummySuffix {
 	fn process_message(
 		_relayer: AccountId,
 		_message: Message,
-	) -> Result<[u8; 32], MessageProcessorError> {
+	) -> Result<([u8; 32], Option<Weight>), MessageProcessorError> {
 		panic!("DummySuffix::process_message shouldn't be called");
 	}
 }
