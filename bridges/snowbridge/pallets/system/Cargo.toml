@@ -34,6 +34,7 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
+bridge-hub-common = { workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 pallet-balances = { default-features = true, workspace = true }

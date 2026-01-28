@@ -17,33 +17,32 @@
 #[cfg(not(feature = "runtime-benchmarks"))]
 use crate::XcmRouter;
 use crate::{
-	xcm_config, xcm_config::UniversalLocation, Balances, EthereumInboundQueue,
-	EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime, RuntimeEvent, TransactionByteFee,
-	TreasuryAccount,
+	xcm_config,
+	xcm_config::{RelayNetwork, UniversalLocation},
+	Balances, EthereumInboundQueue, EthereumOutboundQueue, EthereumSystem, MessageQueue, Runtime,
+	RuntimeEvent, TransactionByteFee, TreasuryAccount,
 };
+use bridge_hub_common::AggregateMessageOrigin;
+use frame_support::{parameter_types, weights::ConstantMultiplier};
+use pallet_xcm::EnsureXcm;
 use parachains_common::{AccountId, Balance};
 use snowbridge_beacon_primitives::{Fork, ForkVersions};
-use snowbridge_core::{gwei, meth, AllowSiblingsOnly, PricingParameters, Rewards};
+use snowbridge_core::{gwei, meth, AllowSiblingsOnly, ChannelId, PricingParameters, Rewards};
 use snowbridge_inbound_queue_primitives::v1::MessageToXcm;
 use snowbridge_outbound_queue_primitives::v1::EthereumBlobExporter;
 
+use bp_asset_hub_rococo::CreateForeignAssetDeposit;
+use hex_literal::hex;
+use snowbridge_pallet_inbound_queue::RewardThroughSovereign;
 use sp_core::H160;
+use sp_runtime::{
+	traits::{ConstU32, ConstU8, Convert, Keccak256},
+	FixedU128,
+};
 use testnet_parachains_constants::rococo::{
 	currency::*,
 	fee::WeightToFee,
 	snowbridge::{EthereumLocation, EthereumNetwork, INBOUND_QUEUE_PALLET_INDEX},
-};
-
-use crate::xcm_config::RelayNetwork;
-#[cfg(feature = "runtime-benchmarks")]
-use benchmark_helpers::DoNothingRouter;
-use bp_asset_hub_rococo::CreateForeignAssetDeposit;
-use frame_support::{parameter_types, weights::ConstantMultiplier};
-use hex_literal::hex;
-use pallet_xcm::EnsureXcm;
-use sp_runtime::{
-	traits::{ConstU32, ConstU8, Keccak256},
-	FixedU128,
 };
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, Parachain};
 
@@ -80,7 +79,7 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type XcmSender = XcmRouter;
 	#[cfg(feature = "runtime-benchmarks")]
-	type XcmSender = DoNothingRouter;
+	type XcmSender = benchmark_helpers::DoNothingRouter;
 	type ChannelLookup = EthereumSystem;
 	type GatewayAddress = EthereumGatewayAddress;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -101,6 +100,17 @@ impl snowbridge_pallet_inbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_inbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type AssetTransactor = <xcm_config::XcmConfig as xcm_executor::Config>::AssetTransactor;
+	type MessageProcessor =
+		snowbridge_pallet_inbound_queue::xcm_message_processor::XcmMessageProcessor<Runtime>;
+	type RewardProcessor = RewardThroughSovereign<Self>;
+}
+
+pub struct GetAggregateMessageOrigin;
+
+impl Convert<ChannelId, AggregateMessageOrigin> for GetAggregateMessageOrigin {
+	fn convert(channel_id: ChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::Snowbridge(channel_id)
+	}
 }
 
 impl snowbridge_pallet_outbound_queue::Config for Runtime {
@@ -116,6 +126,9 @@ impl snowbridge_pallet_outbound_queue::Config for Runtime {
 	type WeightInfo = crate::weights::snowbridge_pallet_outbound_queue::WeightInfo<Runtime>;
 	type PricingParameters = EthereumSystem;
 	type Channels = EthereumSystem;
+	type AggregateMessageOrigin = AggregateMessageOrigin;
+	type GetAggregateMessageOrigin = GetAggregateMessageOrigin;
+	type OnNewCommitment = ();
 }
 
 #[cfg(any(feature = "std", feature = "fast-runtime", feature = "runtime-benchmarks", test))]

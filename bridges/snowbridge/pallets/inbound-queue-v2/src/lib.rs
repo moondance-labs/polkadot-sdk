@@ -37,6 +37,7 @@ mod test;
 
 pub use crate::weights::WeightInfo;
 use bp_relayers::RewardLedger;
+use frame_support::dispatch::PostDispatchInfo;
 use frame_system::ensure_signed;
 use snowbridge_core::{
 	reward::{AddTip, AddTipError},
@@ -44,13 +45,12 @@ use snowbridge_core::{
 	BasicOperatingMode,
 };
 use snowbridge_inbound_queue_primitives::{
-	v2::{ConvertMessage, ConvertMessageError, Message},
+	v2::{ConvertMessageError, Message, MessageProcessor, MessageProcessorError},
 	EventProof, VerificationError, Verifier,
 };
 use sp_core::H160;
-use sp_runtime::traits::TryConvert;
 use sp_std::prelude::*;
-use xcm::prelude::{ExecuteXcm, Junction::*, Location, SendXcm, *};
+use xcm::latest::SendError;
 
 pub use pallet::*;
 
@@ -84,17 +84,11 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The verifier for inbound messages from Ethereum.
 		type Verifier: Verifier;
-		/// XCM message sender.
-		type XcmSender: SendXcm;
-		/// Handler for XCM fees.
-		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 		/// Address of the Gateway contract.
 		#[pallet::constant]
 		type GatewayAddress: Get<H160>;
-		/// AssetHub parachain ID.
-		type AssetHubParaId: Get<u32>;
-		/// Convert a command from Ethereum to an XCM message.
-		type MessageConverter: ConvertMessage;
+		/// Process the message that was submitted.
+		type MessageProcessor: MessageProcessor<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Helper: BenchmarkHelper<Self>;
 		/// Reward discriminator type.
@@ -104,8 +98,6 @@ pub mod pallet {
 		type DefaultRewardKind: Get<Self::RewardKind>;
 		/// Relayer reward payment.
 		type RewardPayment: RewardLedger<Self::AccountId, Self::RewardKind, u128>;
-		/// AccountId to Location converter
-		type AccountToLocation: for<'a> TryConvert<&'a Self::AccountId, Location>;
 		type WeightInfo: WeightInfo;
 	}
 
@@ -127,22 +119,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Message came from an invalid outbound channel on the Ethereum side.
 		InvalidGateway,
-		/// Account could not be converted to bytes
-		InvalidAccount,
 		/// Message has an invalid envelope.
 		InvalidMessage,
 		/// Message has an unexpected nonce.
 		InvalidNonce,
-		/// Fee provided is invalid.
-		InvalidFee,
-		/// Message has an invalid payload.
-		InvalidPayload,
-		/// Message channel is invalid
-		InvalidChannel,
-		/// The max nonce for the type has been reached
-		MaxNonceReached,
-		/// Cannot convert location
-		InvalidAccountConversion,
 		/// Invalid network specified
 		InvalidNetwork,
 		/// Pallet is halted
@@ -202,8 +182,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit an inbound message originating from the Gateway contract on Ethereum
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::submit())]
-		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::submit().saturating_add(T::MessageProcessor::worst_case_message_processor_weight()))]
+		pub fn submit(origin: OriginFor<T>, event: Box<EventProof>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			ensure!(!OperatingMode::<T>::get().is_halted(), Error::<T>::Halted);
 
@@ -233,7 +213,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn process_message(relayer: T::AccountId, message: Message) -> DispatchResult {
+		pub fn process_message(
+			relayer: T::AccountId,
+			message: Message,
+		) -> DispatchResultWithPostInfo {
 			// Verify that the message was submitted from the known Gateway contract
 			ensure!(T::GatewayAddress::get() == message.gateway, Error::<T>::InvalidGateway);
 
@@ -242,20 +225,17 @@ pub mod pallet {
 			// Verify the message has not been processed
 			ensure!(!Nonce::<T>::get(nonce), Error::<T>::InvalidNonce);
 
-			let xcm =
-				T::MessageConverter::convert(message).map_err(|error| Error::<T>::from(error))?;
-
-			// Forward XCM to AH
-			let dest = Location::new(1, [Parachain(T::AssetHubParaId::get())]);
-
 			// Mark message as received
 			Nonce::<T>::set(nonce);
 
-			let message_id =
-				Self::send_xcm(dest.clone(), &relayer, xcm.clone()).map_err(|error| {
-					tracing::error!(target: LOG_TARGET, ?error, ?dest, ?xcm, "XCM send failed with error");
-					Error::<T>::from(error)
-				})?;
+			let (message_id, maybe_corrected_weight) =
+				T::MessageProcessor::process_message(relayer.clone(), message).map_err(
+					|e| match e {
+						MessageProcessorError::ProcessMessage(e) => e,
+						MessageProcessorError::ConvertMessage(e) => Error::<T>::from(e).into(),
+						MessageProcessorError::SendMessage(e) => Error::<T>::from(e).into(),
+					},
+				)?;
 
 			// Pay relayer reward
 			let tip = Tips::<T>::take(nonce).unwrap_or_default();
@@ -264,34 +244,18 @@ pub mod pallet {
 				T::RewardPayment::register_reward(&relayer, T::DefaultRewardKind::get(), total_tip);
 			}
 
+			// Emit event with the message_id
 			Self::deposit_event(Event::MessageReceived { nonce, message_id });
 
-			Ok(())
-		}
-
-		fn send_xcm(
-			dest: Location,
-			fee_payer: &T::AccountId,
-			xcm: Xcm<()>,
-		) -> Result<XcmHash, SendError> {
-			let (ticket, fee) = validate_send::<T::XcmSender>(dest, xcm)?;
-			let fee_payer = T::AccountToLocation::try_convert(fee_payer).map_err(|err| {
-				tracing::error!(
-					target: LOG_TARGET,
-					?err,
-					"Failed to convert account to XCM location",
-				);
-				SendError::NotApplicable
-			})?;
-			T::XcmExecutor::charge_fees(fee_payer.clone(), fee.clone()).map_err(|error| {
-				tracing::error!(
-					target: LOG_TARGET,
-					?error,
-					"Charging fees failed with error",
-				);
-				SendError::Fees
-			})?;
-			T::XcmSender::deliver(ticket)
+			if let Some(corrected_weight) = maybe_corrected_weight {
+				Ok(PostDispatchInfo {
+					actual_weight: Some(corrected_weight.saturating_add(T::WeightInfo::submit())),
+					..Default::default()
+				})
+			} else {
+				// Pays fees and non-corrected-weight
+				Ok(().into())
+			}
 		}
 	}
 

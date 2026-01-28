@@ -22,7 +22,7 @@ fn test_submit_happy_path() {
 
 		let origin = RuntimeOrigin::signed(relayer.clone());
 
-		// Submit event proof
+		// Submit message
 		let event = EventProof {
 			event_log: mock_event_log(),
 			proof: Proof {
@@ -72,7 +72,7 @@ fn test_submit_xcm_invalid_channel() {
 		println!("account: {}", sovereign_account);
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit event proof
+		// Submit message
 		let event = EventProof {
 			event_log: mock_event_log_invalid_channel(),
 			proof: Proof {
@@ -97,7 +97,7 @@ fn test_submit_with_invalid_gateway() {
 		let sovereign_account = sibling_sovereign_account::<Test>(ASSET_HUB_PARAID.into());
 		let _ = Balances::mint_into(&sovereign_account, 10000);
 
-		// Submit event proof
+		// Submit message
 		let event = EventProof {
 			event_log: mock_event_log_invalid_gateway(),
 			proof: Proof {

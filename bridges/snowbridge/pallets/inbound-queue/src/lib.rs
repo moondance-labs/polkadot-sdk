@@ -23,8 +23,6 @@
 //!   parachain.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod envelope;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -35,10 +33,11 @@ mod mock;
 
 #[cfg(test)]
 mod test;
+pub mod xcm_message_processor;
 
-use codec::{Decode, DecodeAll, Encode};
-use envelope::Envelope;
+use codec::{Decode, Encode};
 use frame_support::{
+	pallet_prelude::DispatchResult,
 	traits::{
 		fungible::{Inspect, Mutate},
 		tokens::{Fortitude, Preservation},
@@ -48,7 +47,7 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use scale_info::TypeInfo;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_runtime::traits::Zero;
 use sp_std::vec;
 use xcm::prelude::{
@@ -61,11 +60,13 @@ use snowbridge_core::{
 	StaticLookup,
 };
 use snowbridge_inbound_queue_primitives::{
-	v1::{ConvertMessage, ConvertMessageError, VersionedMessage},
+	v1::{ConvertMessage, ConvertMessageError, VersionedXcmMessage},
 	EventProof, VerificationError, Verifier,
 };
 
 use sp_runtime::{traits::Saturating, SaturatedConversion, TokenError};
+
+use snowbridge_inbound_queue_primitives::v1::{Envelope, MessageProcessor};
 
 pub use weights::WeightInfo;
 
@@ -76,13 +77,47 @@ pub use pallet::*;
 
 pub const LOG_TARGET: &str = "snowbridge-inbound-queue";
 
+pub trait RewardProcessor<T: frame_system::Config> {
+	fn process_reward(who: T::AccountId, channel: Channel, message: EventProof) -> DispatchResult;
+}
+
+impl<T: frame_system::Config> RewardProcessor<T> for () {
+	fn process_reward(
+		_who: T::AccountId,
+		_channel: Channel,
+		_message: EventProof,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
+pub struct RewardThroughSovereign<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: pallet::Config> RewardProcessor<T> for RewardThroughSovereign<T> {
+	fn process_reward(who: T::AccountId, channel: Channel, event: EventProof) -> DispatchResult {
+		let length = event.encode().len() as u32;
+		let delivery_cost = pallet::Pallet::<T>::calculate_delivery_cost(length);
+		let sovereign_account: T::AccountId = sibling_sovereign_account::<T>(channel.para_id);
+
+		let amount = T::Token::reducible_balance(
+			&sovereign_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.min(delivery_cost);
+		if !amount.is_zero() {
+			T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
+		}
+
+		Ok(())
+	}
+}
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_core::H256;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	use snowbridge_inbound_queue_primitives::EventFixture;
@@ -141,6 +176,12 @@ pub mod pallet {
 
 		/// To withdraw and deposit an asset.
 		type AssetTransactor: TransactAsset;
+
+		/// Process the message that was submitted
+		type MessageProcessor: MessageProcessor;
+
+		/// Process the reward to the relayer
+		type RewardProcessor: RewardProcessor<Self>;
 	}
 
 	#[pallet::hooks]
@@ -265,48 +306,8 @@ pub mod pallet {
 				}
 			})?;
 
-			// Reward relayer from the sovereign account of the destination parachain, only if funds
-			// are available
-			let sovereign_account = sibling_sovereign_account::<T>(channel.para_id);
-			let delivery_cost = Self::calculate_delivery_cost(event.encode().len() as u32);
-			let amount = T::Token::reducible_balance(
-				&sovereign_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.min(delivery_cost);
-			if !amount.is_zero() {
-				T::Token::transfer(&sovereign_account, &who, amount, Preservation::Preserve)?;
-			}
-
-			// Decode payload into `VersionedMessage`
-			let message = VersionedMessage::decode_all(&mut envelope.payload.as_ref())
-				.map_err(|_| Error::<T>::InvalidPayload)?;
-
-			// Decode message into XCM
-			let (xcm, fee) = Self::do_convert(envelope.message_id, message.clone())?;
-
-			tracing::info!(
-				target: LOG_TARGET,
-				?xcm,
-				?fee,
-				"💫 xcm decoded"
-			);
-
-			// Burning fees for teleport
-			Self::burn_fees(channel.para_id, fee)?;
-
-			// Attempt to send XCM to a dest parachain
-			let message_id = Self::send_xcm(xcm, channel.para_id)?;
-
-			Self::deposit_event(Event::MessageReceived {
-				channel_id: envelope.channel_id,
-				nonce: envelope.nonce,
-				message_id,
-				fee_burned: fee,
-			});
-
-			Ok(())
+			T::RewardProcessor::process_reward(who, channel.clone(), event)?;
+			T::MessageProcessor::process_message(channel, envelope)
 		}
 
 		/// Halt or resume all pallet operations. May only be called by root.
@@ -326,7 +327,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn do_convert(
 			message_id: H256,
-			message: VersionedMessage,
+			message: VersionedXcmMessage,
 		) -> Result<(Xcm<()>, BalanceOf<T>), Error<T>> {
 			let (xcm, fee) = T::MessageConverter::convert(message_id, message)
 				.map_err(|e| Error::<T>::ConvertMessage(e))?;
