@@ -712,7 +712,7 @@ macro_rules! decl_test_parachains {
 
 						// Initialze `System`.
 						let digest = <Self as Parachain>::DigestProvider::convert((block_number, relay_block_number));
-						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
+						let slot_duration: u64 = 6000;
 						<Self as Chain>::System::initialize(&block_number, &parent_head_data.hash(), &digest);
 
 						// Process `on_initialize` for all pallets except `System`.
